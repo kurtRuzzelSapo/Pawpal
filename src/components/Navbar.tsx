@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { NavLink, Link, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { FaPaw, FaHome, FaSearch, FaPlusCircle, FaUsers, FaUserPlus } from "react-icons/fa";
+import { FaPaw, FaHome, FaSearch, FaPlusCircle, FaUsers, FaUserPlus, FaComment } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { NotificationBadge } from "./NotificationBadge";
+import { ChatBadge } from "./ChatBadge";
 
 const Navbar = () => {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -42,6 +43,11 @@ const Navbar = () => {
     ];
 
     const authenticatedItems = [
+      {
+        path: "/chat",
+        label: "Messages",
+        icon: <FaComment className="text-xl" />,
+      },
       {
         path: "/create",
         label: "Create Post",
@@ -108,6 +114,9 @@ const Navbar = () => {
               <div className="flex items-center space-x-4">
                 {/* Notifications */}
                 <NotificationBadge />
+                
+                {/* Chat */}
+                <ChatBadge />
 
                 {user.user_metadata?.avatar_url && (
                   <NavLink 
@@ -220,7 +229,8 @@ const Navbar = () => {
                   </NavLink>
                 )}
                   <span className="text-violet-800 font-medium font-['Poppins']">{user.user_metadata.full_name || user.email}</span>
-                  <div className="ml-auto">
+                  <div className="ml-auto flex items-center gap-2">
+                    <ChatBadge />
                     <NotificationBadge />
                   </div>
                 </div>

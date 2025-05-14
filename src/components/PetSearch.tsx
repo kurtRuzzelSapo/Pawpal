@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "../supabase-client";
-import { PetProfile } from "./PetProfile";
 import { FaPaw, FaSearch, FaMapMarkerAlt, FaRuler, FaCalendarAlt, FaHeart, FaComment } from "react-icons/fa";
+import { Link, useNavigate } from "react-router-dom";
 
 interface SearchFilters {
   breed?: string;
@@ -43,8 +43,8 @@ const fetchFilteredPets = async (filters: SearchFilters): Promise<Pet[]> => {
 
 export const PetSearch = () => {
   const [filters, setFilters] = useState<SearchFilters>({});
-  const [selectedPet, setSelectedPet] = useState<number | null>(null);
   const [isVisible, setIsVisible] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     setIsVisible(true);
@@ -86,19 +86,12 @@ export const PetSearch = () => {
     }));
   };
 
-  if (selectedPet) {
-    return (
-      <div className="max-w-6xl mx-auto p-6">
-        <button
-          onClick={() => setSelectedPet(null)}
-          className="mb-6 text-violet-600 hover:text-violet-800 flex items-center gap-2 transition-colors font-medium font-['Poppins']"
-        >
-          <span className="bg-violet-100 p-2 rounded-full">←</span> Back to Search
-        </button>
-        <PetProfile petId={selectedPet} />
-      </div>
-    );
-  }
+  // Add a direct navigation function as a backup
+  const handlePetClick = (id: number, event: React.MouseEvent) => {
+    // Prevent default Link behavior and handle navigation programmatically
+    event.preventDefault();
+    navigate(`/post/${id}`);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-violet-50/50 via-blue-50/30 to-white px-4 pt-20">
@@ -258,48 +251,48 @@ export const PetSearch = () => {
       {/* Results */}
       {isLoading ? (
           <div className="flex justify-center items-center py-10 reveal">
-            <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-violet-500 border-r-4 border-violet-300"></div>
+            <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-r-4 border-violet-300"></div>
         </div>
       ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-20 reveal">
           {pets?.map((pet) => (
-            <div
+            <div 
               key={pet.id}
-                className="bg-white/90 backdrop-blur-md rounded-xl overflow-hidden cursor-pointer transform hover:scale-105 transition-all duration-300 shadow-md hover:shadow-lg group"
-              onClick={() => setSelectedPet(pet.id)}
+              className="bg-white/90 backdrop-blur-md rounded-xl overflow-hidden cursor-pointer transform hover:scale-105 transition-all duration-300 shadow-md hover:shadow-lg group"
+              onClick={(e) => handlePetClick(pet.id, e)}
             >
-                <div className="relative overflow-hidden h-52">
-              <img
-                src={pet.image_url}
-                alt={pet.name}
-                    className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500"
-                  />
-                  <div className="absolute top-0 right-0 mt-3 mr-3">
-                    <span className="px-4 py-1 bg-gradient-to-r from-violet-500 to-blue-500 text-white text-sm rounded-full font-medium shadow-md">
+              <div className="relative overflow-hidden h-52">
+                <img
+                  src={pet.image_url}
+                  alt={pet.name}
+                  className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500"
+                />
+                <div className="absolute top-0 right-0 mt-3 mr-3">
+                  <span className="px-4 py-1 bg-gradient-to-r from-violet-500 to-blue-500 text-white text-sm rounded-full font-medium shadow-md">
                     {pet.status}
                   </span>
-                  </div>
                 </div>
-                <div className="p-5">
-                  <h3 className="text-xl font-bold text-violet-800 mb-2 font-['Quicksand']">{pet.name}</h3>
-                  <p className="text-violet-600 text-sm mb-3 flex items-center gap-2 font-['Poppins']">
-                    <FaPaw className="text-violet-400" /> {pet.breed} • {pet.age} years
-                    <span className="mx-1">•</span>
-                    <FaMapMarkerAlt className="text-violet-400" /> {pet.location}
+              </div>
+              <div className="p-5">
+                <h3 className="text-xl font-bold text-violet-800 mb-2 font-['Quicksand']">{pet.name}</h3>
+                <p className="text-violet-600 text-sm mb-3 flex items-center gap-2 font-['Poppins']">
+                  <FaPaw className="text-violet-400" /> {pet.breed} • {pet.age} years
+                  <span className="mx-1">•</span>
+                  <FaMapMarkerAlt className="text-violet-400" /> {pet.location}
                 </p>
-                  <p className="text-gray-600 line-clamp-2 mb-4 font-['Poppins']">{pet.content}</p>
-                  <div className="flex items-center text-sm text-violet-500 justify-between">
-                    <div className="flex items-center gap-1">
-                      <FaHeart className="text-pink-400" />
-                      <span>{pet.like_count}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <FaComment className="text-blue-400" />
-                      <span>{pet.comment_count}</span>
-                    </div>
-                    <span className="text-violet-500 hover:text-violet-700 transition-colors font-medium">
-                      View Details →
-                    </span>
+                <p className="text-gray-600 line-clamp-2 mb-4 font-['Poppins']">{pet.content}</p>
+                <div className="flex items-center text-sm text-violet-500 justify-between">
+                  <div className="flex items-center gap-1">
+                    <FaHeart className="text-pink-400" />
+                    <span>{pet.like_count}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <FaComment className="text-blue-400" />
+                    <span>{pet.comment_count}</span>
+                  </div>
+                  <span className="text-violet-500 hover:text-violet-700 transition-colors font-medium">
+                    View Details →
+                  </span>
                 </div>
               </div>
             </div>

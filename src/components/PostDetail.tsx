@@ -4,7 +4,7 @@ import { supabase } from "../supabase-client";
 import { Post } from "./PostList";
 import { LikeButton } from "./LikeButton";
 import { CommentSection } from "./CommentSection";
-import { FaPaw, FaMapMarkerAlt, FaSyringe, FaRuler, FaArrowLeft, FaTrash, FaCalendarAlt, FaHeartbeat, FaClock, FaHeart, FaHandHoldingHeart } from "react-icons/fa";
+import { FaPaw, FaMapMarkerAlt, FaSyringe, FaRuler, FaArrowLeft, FaTrash, FaCalendarAlt, FaHeartbeat, FaClock, FaHeart, FaHandHoldingHeart, FaEnvelope } from "react-icons/fa";
 import { MdPets } from "react-icons/md";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -217,13 +217,31 @@ export const PostDetail = ({ postId }: { postId: string }) => {
   const location = useLocation();
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const [isVisible, setIsVisible] = useState(false);
   const [isRequesting, setIsRequesting] = useState(false);
   const [hasRequested, setHasRequested] = useState(false);
   const [requestStatus, setRequestStatus] = useState<string | null>(null);
+  const [loadingAttempts, setLoadingAttempts] = useState(0);
   
   // Create refs for sections we want to scroll to
   const adoptionRequestsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    console.log(`PostDetail mounted with ID: ${postId}`);
+    
+    // Force refetch data on initial load and when postId changes
+    queryClient.invalidateQueries({ queryKey: ['post', parseInt(postId)] });
+    
+    // Add a mandatory delay before showing content to ensure data is fetched
+    const timer = setTimeout(() => {
+      setLoadingAttempts(prev => prev + 1);
+      console.log(`Increased loading attempts to ${loadingAttempts + 1} for post ${postId}`);
+    }, 200);
+    
+    return () => {
+      clearTimeout(timer);
+      console.log(`PostDetail unmounted for ID: ${postId}`);
+    };
+  }, [postId, queryClient]);
 
   // Check if the user has already requested this pet
   useEffect(() => {
@@ -254,34 +272,13 @@ export const PostDetail = ({ postId }: { postId: string }) => {
     }
   };
 
-  useEffect(() => {
-    setIsVisible(true);
-
-    // Add scroll animation for elements
-    const observerOptions = {
-      threshold: 0.1,
-      rootMargin: "0px 0px -100px 0px"
-    };
-
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('visible');
-        }
-      });
-    }, observerOptions);
-
-    const animatedElements = document.querySelectorAll('.reveal');
-    animatedElements.forEach(el => observer.observe(el));
-
-    return () => {
-      animatedElements.forEach(el => observer.unobserve(el));
-    };
-  }, []);
-
-  const { data, error, isLoading } = useQuery<Post, Error>({
-    queryKey: ["PostID", postId],
+  const { data: post, isLoading, isError, error } = useQuery<Post, Error>({
+    queryKey: ['post', parseInt(postId)],
     queryFn: () => fetchPostById(parseInt(postId)),
+    retry: 3,
+    retryDelay: 1000,
+    refetchOnWindowFocus: false,
+    staleTime: 60000, // 1 minute
   });
 
   // Add effect to handle tab query parameter
@@ -295,10 +292,10 @@ export const PostDetail = ({ postId }: { postId: string }) => {
         adoptionRequestsRef.current?.scrollIntoView({ behavior: 'smooth' });
       }, 500);
     }
-  }, [location.search, data]);
+  }, [location.search, post]);
 
   const handleDelete = async () => {
-    if (!data || !user || user.id !== data.user_id) {
+    if (!post || !user || user.id !== post.user_id) {
       alert("You don't have permission to delete this post");
       return;
     }
@@ -307,7 +304,7 @@ export const PostDetail = ({ postId }: { postId: string }) => {
     if (!confirmed) return;
 
     try {
-      await deletePost(data);
+      await deletePost(post);
       // Invalidate queries and redirect to home
       queryClient.invalidateQueries({ queryKey: ["posts"] });
       navigate("/home", { replace: true });
@@ -323,7 +320,7 @@ export const PostDetail = ({ postId }: { postId: string }) => {
       return;
     }
     
-    if (!data || !data.user_id) {
+    if (!post || !post.user_id) {
       toast.error("Unable to process request. Missing pet information.");
       return;
     }
@@ -333,8 +330,8 @@ export const PostDetail = ({ postId }: { postId: string }) => {
       await sendAdoptionRequest(
         parseInt(postId), 
         user.id, 
-        data.user_id,
-        data.name || "this pet"
+        post.user_id,
+        post.name || "this pet"
       );
       setHasRequested(true);
       toast.success("Adoption request sent successfully! The owner will be notified.");
@@ -351,7 +348,7 @@ export const PostDetail = ({ postId }: { postId: string }) => {
       return;
     }
     
-    if (!data) {
+    if (!post) {
       toast.error("Unable to process request. Missing pet information.");
       return;
     }
@@ -402,33 +399,54 @@ export const PostDetail = ({ postId }: { postId: string }) => {
     return healthInfo.replace(/Vaccination Proof: https:\/\/[^\s]+/g, '').trim();
   };
 
-  if (isLoading) {
+  // Before rendering the main content, handle loading and error states
+  if (isLoading || (!post && loadingAttempts < 2)) {
     return (
-      <div className="flex justify-center items-center py-10">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-violet-500 border-r-4 border-violet-300"></div>
+      <div className="max-w-4xl mx-auto p-6 bg-white/90 rounded-xl shadow-md backdrop-blur-md flex flex-col items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-violet-500 border-r-4 border-violet-300 mb-4"></div>
+        <p className="text-violet-700 font-medium">Loading pet details...</p>
       </div>
     );
   }
 
-  if (error) {
+  if (isError || !post) {
     return (
-      <div className="text-center text-red-500 py-4 bg-red-50 rounded-xl p-6 shadow-md font-['Poppins']">
-        <p className="text-xl font-medium mb-2">Oops! Something went wrong</p>
-        <p>Error: {error.message}</p>
+      <div className="max-w-4xl mx-auto p-6 bg-white/90 rounded-xl shadow-md backdrop-blur-md text-center">
+        <FaPaw className="text-5xl mx-auto mb-4 text-violet-300" />
+        <h2 className="text-xl font-bold text-violet-800 mb-4">Error Loading Pet Details</h2>
+        <p className="text-gray-600 mb-6">{error?.message || "Unable to load pet information. The pet may no longer be available."}</p>
+        <div className="flex justify-center gap-4">
+          <button 
+            onClick={() => {
+              queryClient.invalidateQueries({ queryKey: ['post', parseInt(postId)] });
+              setLoadingAttempts(0); // Reset attempts
+              window.location.reload(); // Force a full page reload as a last resort
+            }}
+            className="px-4 py-2 bg-violet-100 text-violet-700 rounded-lg hover:bg-violet-200 transition-colors font-medium"
+          >
+            Try Again
+          </button>
+          <button 
+            onClick={() => navigate('/search')}
+            className="px-4 py-2 bg-gradient-to-r from-violet-500 to-purple-500 text-white rounded-lg hover:from-violet-600 hover:to-purple-600 transition-all font-medium"
+          >
+            Back to Search
+          </button>
+        </div>
       </div>
     );
   }
 
-  const vaccinationProofUrl = data?.health_info ? extractVaccinationProof(data.health_info) : null;
-  const cleanHealthInfo = data?.health_info ? getCleanHealthInfo(data.health_info) : '';
+  const vaccinationProofUrl = post?.health_info ? extractVaccinationProof(post.health_info) : null;
+  const cleanHealthInfo = post?.health_info ? getCleanHealthInfo(post.health_info) : '';
   
   // Determine if the adoption button should be visible
-  const showAdoptionButton = user && data && 
-    user.id !== data.user_id && // User is not the owner
-    data.status === 'Available'; // Pet status is available
+  const showAdoptionButton = user && post && 
+    user.id !== post.user_id && // User is not the owner
+    post.status === 'Available'; // Pet status is available
 
   return (
-    <div className={`max-w-4xl mx-auto transition-all duration-1000 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+    <div className="max-w-4xl mx-auto">
       {/* Animated Paw Prints Background */}
       <div className="fixed inset-0 pointer-events-none z-0 opacity-5">
         {Array.from({ length: 15 }).map((_, i) => (
@@ -448,7 +466,7 @@ export const PostDetail = ({ postId }: { postId: string }) => {
       </div>
 
       {/* Navigation and Action Buttons */}
-      <div className="flex justify-between items-center mb-6 reveal">
+      <div className="flex justify-between items-center mb-6">
         <button
           onClick={() => navigate(-1)}
           className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-500 to-blue-500 text-white rounded-xl font-medium hover:from-violet-600 hover:to-blue-600 transform hover:scale-105 transition-all duration-300 shadow-md font-['Poppins']"
@@ -457,7 +475,7 @@ export const PostDetail = ({ postId }: { postId: string }) => {
           <span>Back to Posts</span>
         </button>
 
-        {user && data && user.id === data.user_id && (
+        {user && post && user.id === post.user_id && (
           <button
             onClick={handleDelete}
             className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-red-500 to-pink-500 text-white rounded-xl font-medium hover:from-red-600 hover:to-pink-600 transform hover:scale-105 transition-all duration-300 shadow-md font-['Poppins']"
@@ -468,72 +486,67 @@ export const PostDetail = ({ postId }: { postId: string }) => {
         )}
       </div>
 
-      <div className="bg-white/90 backdrop-blur-md rounded-3xl shadow-md p-6 mb-6 reveal border border-violet-100 relative z-10">
+      <div className="bg-white/90 backdrop-blur-md rounded-3xl shadow-md p-6 mb-6 border border-violet-100 relative z-10">
         {/* Header with Avatar and Status */}
         <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
           <div className="flex items-center space-x-4">
-            {data?.avatar_url ? (
-              <div className="relative">
-                <div className="absolute -inset-0.5 bg-gradient-to-r from-violet-400 to-blue-400 rounded-full opacity-75 blur-sm"></div>
-              <img
-                src={data.avatar_url}
-                alt="User Avatar"
-                  className="w-16 h-16 rounded-full object-cover relative border-2 border-white"
-              />
-              </div>
-            ) : (
-              <div className="w-16 h-16 rounded-full bg-gradient-to-r from-violet-400 to-blue-400 flex items-center justify-center">
-                <FaPaw className="text-white text-2xl" />
-              </div>
-            )}
+          
             <div>
-              <h2 className="text-3xl font-bold text-violet-800 font-['Quicksand']">{data?.name}</h2>
-              {data?.breed && (
+              <h2 className="text-3xl font-bold text-violet-800 font-['Quicksand']">{post?.name}</h2>
+              {post?.breed && (
                 <div className="text-violet-600 flex items-center font-['Poppins']">
                   <MdPets className="mr-1 text-violet-400" />
-                  {data.breed}
+                  {post.breed}
                 </div>
               )}
             </div>
           </div>
-          {data?.status && (
-            <span className={`px-4 py-2 rounded-full text-sm font-medium text-white bg-gradient-to-r ${getStatusColor(data.status)} shadow-md font-['Poppins']`}>
-              {data.status}
+          {post?.status && (
+            <span className={`px-4 py-2 rounded-full text-sm font-medium text-white bg-gradient-to-r ${getStatusColor(post.status)} shadow-md font-['Poppins']`}>
+              {post.status}
             </span>
           )}
         </div>
 
         {/* Main Image */}
-        {data?.image_url && (
+        {post?.image_url && (
           <div className="mb-6 rounded-xl overflow-hidden shadow-md">
             <img
-              src={data.image_url}
-              alt={data.name}
+              src={post.image_url}
+              alt={post.name}
               className="w-full h-[400px] object-cover"
+              onError={(e) => {
+                // When image fails to load, replace with a placeholder
+                e.currentTarget.src = 'https://via.placeholder.com/800x400?text=Image+Unavailable';
+              }}
             />
           </div>
         )}
 
         {/* Pet Info */}
         <div className="mb-8">
-          <h3 className="text-lg font-semibold text-violet-800 mb-4 font-['Quicksand']">About {data?.name}</h3>
-          <p className="text-gray-600 mb-6 font-['Poppins'] whitespace-pre-line">{data?.content}</p>
+          <h3 className="text-lg font-semibold text-violet-800 mb-4 font-['Quicksand']">About {post?.name}</h3>
+          <p className="text-gray-600 mb-6 font-['Poppins'] whitespace-pre-line">{post?.content}</p>
         </div>
 
         {/* Additional Photos Gallery */}
-        {data?.additional_photos && data.additional_photos.length > 0 && (
+        {post?.additional_photos && post.additional_photos.length > 0 && (
           <div className="mb-8">
             <h3 className="text-lg font-semibold text-violet-800 mb-4 font-['Quicksand'] flex items-center">
               <FaPaw className="mr-2 text-violet-400" />
               Additional Photos
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {data.additional_photos.map((photo: string, index: number) => (
+              {post.additional_photos.map((photo: string, index: number) => (
                 <img
                   key={index}
                   src={photo}
                   alt={`Additional photo ${index + 1}`}
                   className="w-full h-48 object-cover rounded-xl shadow-sm hover:shadow-md transition-shadow duration-300 border border-violet-100"
+                  onError={(e) => {
+                    // When image fails to load, replace with a placeholder
+                    e.currentTarget.src = 'https://via.placeholder.com/400x300?text=Image+Unavailable';
+                  }}
                 />
               ))}
             </div>
@@ -546,34 +559,34 @@ export const PostDetail = ({ postId }: { postId: string }) => {
             <h3 className="text-lg font-semibold text-violet-800 mb-4 font-['Quicksand']">Pet Details</h3>
           {/* Location and Age */}
             <div className="space-y-3 font-['Poppins']">
-            {data?.location && (
+            {post?.location && (
                 <div className="flex items-center text-violet-700">
                   <FaMapMarkerAlt className="mr-2 text-violet-500" />
-                  <span><strong>Location:</strong> {data.location}</span>
+                  <span><strong>Location:</strong> {post.location}</span>
               </div>
             )}
-            {data?.age && (
+            {post?.age && (
                 <div className="flex items-center text-violet-700">
                   <FaCalendarAlt className="mr-2 text-violet-500" />
-                  <span><strong>Age:</strong> {data.age} months</span>
+                  <span><strong>Age:</strong> {post.age} months</span>
               </div>
             )}
-            {data?.size && (
+            {post?.size && (
                 <div className="flex items-center text-violet-700">
                   <FaRuler className="mr-2 text-violet-500" />
-                  <span><strong>Size:</strong> {data.size}</span>
+                  <span><strong>Size:</strong> {post.size}</span>
               </div>
             )}
-            {data?.vaccination_status !== undefined && (
+            {post?.vaccination_status !== undefined && (
                 <div className="flex items-center text-violet-700">
                   <FaSyringe className="mr-2 text-violet-500" />
-                  <span><strong>Vaccination Status:</strong> {data.vaccination_status ? 'Vaccinated' : 'Not vaccinated'}</span>
+                  <span><strong>Vaccination Status:</strong> {post.vaccination_status ? 'Vaccinated' : 'Not vaccinated'}</span>
                 </div>
               )}
-              {data?.created_at && (
+              {post?.created_at && (
                 <div className="flex items-center text-violet-700">
                   <FaClock className="mr-2 text-violet-500" />
-                  <span><strong>Posted:</strong> {new Date(data.created_at).toLocaleDateString()}</span>
+                  <span><strong>Posted:</strong> {new Date(post.created_at).toLocaleDateString()}</span>
                 </div>
               )}
             </div>
@@ -593,11 +606,11 @@ export const PostDetail = ({ postId }: { postId: string }) => {
         )}
 
             {/* Temperament */}
-        {data?.temperament && data.temperament.length > 0 && (
+        {post?.temperament && post.temperament.length > 0 && (
               <div className="bg-violet-50 p-5 rounded-xl border border-violet-100">
                 <h3 className="text-lg font-semibold text-violet-800 mb-3 font-['Quicksand']">Temperament</h3>
             <div className="flex flex-wrap gap-2">
-                  {data.temperament.map((trait, index) => (
+                  {post.temperament.map((trait, index) => (
                 <span
                   key={index}
                       className="px-3 py-1 bg-white rounded-full text-violet-700 border border-violet-200 shadow-sm font-['Poppins'] text-sm"
@@ -612,7 +625,7 @@ export const PostDetail = ({ postId }: { postId: string }) => {
         </div>
 
         {/* Vaccination Proof */}
-        {vaccinationProofUrl && data?.vaccination_status && (
+        {vaccinationProofUrl && post?.vaccination_status && (
           <div className="mb-8">
             <h3 className="text-lg font-semibold text-violet-800 mb-3 font-['Quicksand'] flex items-center">
               <FaSyringe className="mr-2 text-violet-500" />
@@ -623,30 +636,60 @@ export const PostDetail = ({ postId }: { postId: string }) => {
                 src={vaccinationProofUrl}
                 alt="Vaccination Proof"
                 className="max-w-full max-h-80 object-contain mx-auto rounded-lg"
+                onError={(e) => {
+                  // When image fails to load, replace with a message
+                  e.currentTarget.style.display = 'none';
+                  const parent = e.currentTarget.parentElement;
+                  if (parent) {
+                    parent.innerHTML = '<div class="p-4 text-center text-violet-700">Vaccination proof image unavailable</div>';
+                  }
+                }}
               />
             </div>
           </div>
         )}
-
+        
         {/* Action Buttons Section */}
-        <div className="mt-8 mb-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="mt-8 mb-8 grid grid-cols-1 md:grid-cols-2 gap-2">
           {/* Like Button */}
           <div>
             <LikeButton postId={parseInt(postId)} />
           </div>
-
           {/* Request Adoption Button - only shown if user is not the owner and pet is available */}
           {showAdoptionButton && (
-            <div>
+            <div className="flex items-center justify-end gap-2">
+              <button
+                  onClick={() => {
+                    if (user) {
+                      // Pass both the owner's ID and the pet's name to the chat system
+                      navigate(`/chat`, { 
+                        state: { 
+                          otherUserId: post.user_id,
+                          petName: post.name,
+                          petOwnerId: post.user_id,
+                          postId: post.id
+                        } 
+                      });
+                    } else {
+                      toast.error("Please login to chat with the owner");
+                      navigate('/login');
+                    }
+                  }}
+                  className="flex items-center justify-center gap-2 py-3 px-6 rounded-xl font-medium font-['Poppins'] text-white transition-all duration-300 shadow-md bg-gradient-to-r from-blue-500 to-teal-500 hover:from-blue-600 hover:to-teal-600 transform hover:scale-105"
+                >
+                  <FaEnvelope className="text-xl" />
+                  Chat with Owner
+                </button>
               {!hasRequested ? (
                 <button
                   onClick={handleAdoptionRequest}
                   disabled={isRequesting}
-                  className="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl font-medium font-['Poppins'] text-white transition-all duration-300 shadow-md bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 transform hover:scale-105"
+                  className="flex items-center justify-center gap-2 py-3 px-6 rounded-xl font-medium font-['Poppins'] text-white transition-all duration-300 shadow-md bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 transform hover:scale-105"
                 >
                   <FaHandHoldingHeart className="text-xl" />
                   {isRequesting ? 'Sending Request...' : 'Request for Adoption'}
                 </button>
+               
               ) : (
                 <div className="space-y-2">
                   <div className={`text-white rounded-lg p-3 flex items-center gap-2 font-['Poppins'] ${
@@ -702,14 +745,14 @@ export const PostDetail = ({ postId }: { postId: string }) => {
         </div>
 
         {/* Adoption Requests Section - Only visible to post owner */}
-        {user && data && user.id === data.user_id && (
+        {user && post && user.id === post.user_id && (
           <div className="mt-8" ref={adoptionRequestsRef}>
             <AdoptionRequestsList postId={parseInt(postId)} ownerId={user.id} />
           </div>
         )}
       </div>
 
-      {/* Add animation style for floating paws */}
+      {/* Update style block at the end */}
       <style>
         {`
           @keyframes float {
@@ -720,14 +763,11 @@ export const PostDetail = ({ postId }: { postId: string }) => {
             --rotation: 0deg;
             animation: float 8s ease-in-out infinite;
           }
-          .reveal {
-            opacity: 0;
-            transform: translateY(20px);
-            transition: all 0.6s ease-out;
+          .fallback-avatar .fallback-icon {
+            display: flex !important;
           }
-          .reveal.visible {
-            opacity: 1;
-            transform: translateY(0);
+          .fallback-avatar img {
+            display: none;
           }
         `}
       </style>

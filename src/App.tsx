@@ -17,6 +17,7 @@ import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import AboutPage from "./pages/AboutPage";
 import ContactPage from "./pages/ContactPage";
+import ChatPage from "./pages/ChatPage";
 import { useParams } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 
@@ -84,6 +85,8 @@ function App() {
                   <Route path="community/create" element={<CreateCommunityPage />} />
                   <Route path="communities" element={<CommunitiesPage />} />
                   <Route path="community/:id" element={<CommunityPage />} />
+                  <Route path="chat" element={<ChatPage />} />
+                  <Route path="chat/:conversationId" element={<ChatPage />} />
                 </Routes>
               </div>
             </div>

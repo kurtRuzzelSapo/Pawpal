@@ -222,20 +222,6 @@ export const PostList = () => {
                 {/* Header: Title and Status */}
                 <div className="px-5 pt-5 flex items-center justify-between">
                   <div className="flex items-center space-x-3">
-                    {post.avatar_url ? (
-                      <div className="relative">
-                        <div className="absolute -inset-0.5 bg-gradient-to-r from-violet-400 to-blue-400 rounded-full opacity-75 blur-sm"></div>
-                        <img
-                          src={post.avatar_url}
-                          alt="User Avatar"
-                          className="w-10 h-10 rounded-full object-cover relative border-2 border-white"
-                        />
-                      </div>
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-r from-violet-400 to-blue-400 flex items-center justify-center">
-                        <FaPaw className="text-white" />
-                      </div>
-                    )}
                     <div className="flex flex-col">
                       <div className="text-xl leading-snug font-bold text-violet-800 font-['Quicksand']">
                         {post.name || "Unnamed Pet"}
@@ -313,7 +299,7 @@ export const PostList = () => {
                 </div>
 
                 {/* Interaction Stats */}
-                <div className="flex justify-between items-center mt-2 px-5 pb-5">
+                {/* <div className="flex justify-between items-center mt-2 px-5 pb-5">
                   <div className="flex gap-4">
                     <span className="flex items-center text-pink-500 text-sm font-medium font-['Poppins']">
                       <FaHeart className="mr-1" />
@@ -327,7 +313,7 @@ export const PostList = () => {
                   <span className="text-violet-600 text-sm font-medium hover:text-violet-800 transition-colors font-['Poppins']">
                     View Details →
                   </span>
-                </div>
+                </div> */}
               </div>
             </Link>
           </div>
