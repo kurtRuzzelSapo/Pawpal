@@ -1,10 +1,11 @@
-import { ChangeEvent, useState } from "react";
+import { ChangeEvent, useState, useEffect } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { supabase } from "../supabase-client";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { FaImage, FaPaw, FaMapMarkerAlt, FaRuler, FaCalendarAlt, FaCheck, FaStethoscope, FaHeart, FaUsers, FaTrash } from "react-icons/fa";
 import { Community, fetchCommunities } from "./CommunityList";
+import { useQuery as useReactQuery } from '@tanstack/react-query';
 
 interface PostInput {
   name: string;
@@ -104,6 +105,17 @@ const createPost = async (
   return data;
 };
 
+// Fetch user data for default location
+const fetchUserData = async (userId: string) => {
+  const { data, error } = await supabase
+    .from('users')
+    .select('location')
+    .eq('id', userId)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+};
+
 export const CreatePost = () => {
   const [name, setName] = useState<string>("");
   const [content, setContent] = useState<string>("");
@@ -131,6 +143,20 @@ export const CreatePost = () => {
   }); 
 
   const navigate = useNavigate();
+
+  // Fetch userData for default location
+  const { data: userData } = useReactQuery({
+    queryKey: ["userData", user?.id],
+    queryFn: () => user && fetchUserData(user.id),
+    enabled: !!user,
+  });
+
+  // Set default location if userData.location exists and location is empty
+  useEffect(() => {
+    if (userData && userData.location && !location) {
+      setLocation(userData.location);
+    }
+  }, [userData, location]);
 
   const { mutate, isPending, isError } = useMutation({
     mutationFn: (data: { 
@@ -352,7 +378,7 @@ export const CreatePost = () => {
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
                 className="w-full border border-violet-100 bg-violet-50 p-3 rounded-xl text-violet-800 focus:ring-2 focus:ring-violet-400 focus:border-transparent transition-all group-hover:border-violet-300 font-['Poppins']"
-                placeholder="City, State"
+                placeholder="City"
               />
             </div>
 
