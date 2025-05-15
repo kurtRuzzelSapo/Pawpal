@@ -3,7 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { supabase } from "../supabase-client";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { FaImage, FaPaw, FaMapMarkerAlt, FaRuler, FaCalendarAlt, FaCheck, FaStethoscope, FaHeart, FaUsers } from "react-icons/fa";
+import { FaImage, FaPaw, FaMapMarkerAlt, FaRuler, FaCalendarAlt, FaCheck, FaStethoscope, FaHeart, FaUsers, FaTrash } from "react-icons/fa";
 import { Community, fetchCommunities } from "./CommunityList";
 
 interface PostInput {
@@ -252,6 +252,22 @@ export const CreatePost = () => {
     { value: 'Adopted', label: 'Adopted - Found Forever Home' }
   ];
 
+  // --- Add delete handlers ---
+  const handleDeleteMainImage = () => {
+    setSelectedFile(null);
+    setPreview(null);
+  };
+
+  const handleDeleteVaccinationProof = () => {
+    setVaccinationProofFile(null);
+    setVaccinationPreview(null);
+  };
+
+  const handleDeleteAdditionalImage = (index: number) => {
+    setAdditionalFiles((prev) => prev.filter((_, i) => i !== index));
+    setAdditionalPreviews((prev) => prev.filter((_, i) => i !== index));
+  };
+
   return (
     <form
       onSubmit={handleSubmit}
@@ -454,12 +470,20 @@ export const CreatePost = () => {
                   </label>
                 </div>
                 {vaccinationPreview && (
-                  <div className="mt-2">
+                  <div className="mt-2 relative">
                     <img
                       src={vaccinationPreview}
                       alt="Vaccination Proof"
                       className="max-w-full h-40 object-cover rounded-lg border border-violet-200"
                     />
+                    <button
+                      type="button"
+                      onClick={handleDeleteVaccinationProof}
+                      className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 rounded-full p-1 shadow text-white text-xs flex items-center justify-center"
+                      aria-label="Delete vaccination proof"
+                    >
+                      <FaTrash size={14} />
+                    </button>
                   </div>
                 )}
               </div>
@@ -512,12 +536,20 @@ export const CreatePost = () => {
               </label>
             </div>
             {preview && (
-              <div className="mt-3">
+              <div className="mt-3 relative">
                 <img
                   src={preview}
                   alt="Pet Preview"
                   className="w-full h-56 object-cover rounded-lg border border-violet-200"
                 />
+                <button
+                  type="button"
+                  onClick={handleDeleteMainImage}
+                  className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 rounded-full p-1 shadow text-white text-xs flex items-center justify-center"
+                  aria-label="Delete main image"
+                >
+                  <FaTrash size={14} />
+                </button>
               </div>
             )}
           </div>
@@ -548,12 +580,21 @@ export const CreatePost = () => {
         {additionalPreviews.length > 0 && (
           <div className="mt-3 grid grid-cols-3 gap-3">
             {additionalPreviews.map((preview, index) => (
-              <img
-                key={index}
-                src={preview}
-                alt={`Additional Pet Image ${index + 1}`}
-                className="w-full h-32 object-cover rounded-lg border border-violet-200"
-              />
+              <div key={index} className="relative">
+                <img
+                  src={preview}
+                  alt={`Additional Pet Image ${index + 1}`}
+                  className="w-full h-32 object-cover rounded-lg border border-violet-200"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleDeleteAdditionalImage(index)}
+                  className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 rounded-full p-1 shadow text-white text-xs flex items-center justify-center"
+                  aria-label={`Delete additional image ${index + 1}`}
+                >
+                  <FaTrash size={14} />
+                </button>
+              </div>
             ))}
           </div>
         )}
