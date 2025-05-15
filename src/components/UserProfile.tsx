@@ -290,6 +290,36 @@ const guessContentType = (filename: string): string => {
   }
 };
 
+// Two-step fetch: 1) adoption_requests, 2) owners
+const fetchUserAdoptionRequests = async (userId: string) => {
+  // 1. Fetch adoption requests (with post join only)
+  const { data: requests, error } = await supabase
+    .from('adoption_requests')
+    .select('*, post:post_id(name, created_at, user_id)')
+    .eq('requester_id', userId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  if (!requests || requests.length === 0) return [];
+
+  // 2. Extract unique owner_ids
+  const ownerIds = [...new Set(requests.map(r => r.owner_id).filter(Boolean))];
+  if (ownerIds.length === 0) return requests;
+
+  // 3. Fetch owners from profiles
+  const { data: owners, error: ownersError } = await supabase
+    .from('profiles')
+    .select('id, full_name')
+    .in('id', ownerIds);
+  if (ownersError) throw ownersError;
+  const ownerMap = Object.fromEntries((owners || []).map(o => [o.id, o]));
+
+  // 4. Merge owner info into requests
+  return requests.map(r => ({
+    ...r,
+    owner: ownerMap[r.owner_id] || null,
+  }));
+};
+
 interface UserProfileProps {
   profileId?: string; // Optional profile ID to view someone else's profile
 }
@@ -305,6 +335,8 @@ export const UserProfile = ({ profileId }: UserProfileProps) => {
   const [selectedDocument, setSelectedDocument] = useState<UserDocument | null>(null);
   const [showDocumentModal, setShowDocumentModal] = useState(false);
   const [showImagesGallery, setShowImagesGallery] = useState(false);
+  const [isEditingLocation, setIsEditingLocation] = useState(false);
+  const [newLocation, setNewLocation] = useState("");
   
   // File input reference
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -334,6 +366,7 @@ export const UserProfile = ({ profileId }: UserProfileProps) => {
   useEffect(() => {
     if (userData) {
       setNewBio(userData.bio || "");
+      setNewLocation(userData.location || "");
     }
   }, [userData]);
 
@@ -357,6 +390,24 @@ export const UserProfile = ({ profileId }: UserProfileProps) => {
     } catch (error: any) {
       console.error("Error updating bio:", error);
       setUploadMessage("Failed to update bio: " + error.message);
+    }
+  };
+
+  // Function to update location
+  const updateLocation = async () => {
+    if (!user || !isOwnProfile) return;
+    try {
+      const { error } = await supabase
+        .from("users")
+        .update({ location: newLocation })
+        .eq("id", user.id);
+      if (error) throw error;
+      refetchUser();
+      setIsEditingLocation(false);
+      setUploadMessage("Location updated successfully!");
+      setTimeout(() => setUploadMessage("") , 3000);
+    } catch (error: any) {
+      setUploadMessage("Failed to update location: " + error.message);
     }
   };
 
@@ -570,6 +621,14 @@ export const UserProfile = ({ profileId }: UserProfileProps) => {
     queryFn: () => fetchUserBadges(targetUserId),
     enabled: !!targetUserId,
   });
+
+  // Fetch adoption requests for this user
+  const { data: adoptionRequestsRaw, isLoading: adoptionRequestsLoading } = useQuery<any[], Error>({
+    queryKey: ["adoptionRequests", targetUserId],
+    queryFn: () => fetchUserAdoptionRequests(targetUserId),
+    enabled: !!targetUserId,
+  });
+  const adoptionRequests = adoptionRequestsRaw || [];
 
   if (!user) {
     return (
@@ -888,9 +947,47 @@ export const UserProfile = ({ profileId }: UserProfileProps) => {
                           </span>
                         )}
                       </h1>
-                      <div className="flex items-center text-violet-600 mt-1 font-['Poppins']">
+                      <div className="flex items-center text-violet-600 mt-1 font-['Poppins'] gap-2">
                         <FaMapMarkerAlt className="mr-1 text-violet-400" />
-                        <span>{userData?.location || "Location not set"}</span>
+                        {isOwnProfile && isEditingLocation ? (
+                          <>
+                            <input
+                              type="text"
+                              value={newLocation}
+                              onChange={e => setNewLocation(e.target.value)}
+                              className="p-2 rounded-lg border border-violet-200 focus:border-violet-400 bg-violet-50 text-violet-800 font-['Poppins']"
+                              placeholder="Enter your location"
+                              autoFocus
+                            />
+                            <button
+                              onClick={updateLocation}
+                              className="ml-2 bg-gradient-to-r from-violet-500 to-blue-500 text-white px-3 py-1 rounded-lg text-xs hover:from-violet-600 hover:to-blue-600 transition-all"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={() => {
+                                setIsEditingLocation(false);
+                                setNewLocation(userData?.location || "");
+                              }}
+                              className="ml-1 text-violet-500 hover:text-violet-800 text-xs"
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <span>{userData?.location || "Location not set"}</span>
+                            {isOwnProfile && (
+                              <button
+                                onClick={() => setIsEditingLocation(true)}
+                                className="ml-2 text-sm text-violet-600 hover:text-violet-800 flex items-center gap-1"
+                              >
+                                Edit ✏️
+                              </button>
+                            )}
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1090,35 +1187,47 @@ export const UserProfile = ({ profileId }: UserProfileProps) => {
              
 
               {/* Adoption History */}
-              {userData?.adoption_history && userData.adoption_history.length > 0 ? (
-                <div className="bg-white/90 backdrop-blur-md rounded-3xl shadow-md p-6 mb-6 reveal border border-violet-100">
-                  <h2 className="text-xl font-bold text-violet-800 mb-4 flex items-center font-['Quicksand']">
-                    <FaPaw className="mr-2 text-violet-500" />
-                    Adoption History
-                  </h2>
-                  <div className="space-y-4">
-                    {userData.adoption_history.map((adoption, index) => (
-                      <div
-                        key={index}
-                        className="bg-violet-50 p-4 rounded-xl text-violet-700 border border-violet-100 font-['Poppins']"
-                      >
-                        {adoption}
-                      </div>
-                    ))}
+              <div className="bg-white/90 backdrop-blur-md rounded-3xl shadow-md p-6 mb-6 reveal border border-violet-100">
+                <h2 className="text-xl font-bold text-violet-800 mb-4 flex items-center font-['Quicksand']">
+                  <FaPaw className="mr-2 text-violet-500" />
+                  Adoption History
+                </h2>
+                {adoptionRequestsLoading ? (
+                  <div className="text-center py-8 text-violet-600">Loading adoption history...</div>
+                ) : adoptionRequests.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left font-['Poppins'] border-separate border-spacing-y-2">
+                      <thead>
+                        <tr className="text-violet-700">
+                          <th className="font-semibold">Name of Pet</th>
+                          <th className="font-semibold">Owner</th>
+                          <th className="font-semibold">Posted Date</th>
+                          <th className="font-semibold">Application Date</th>
+                          <th className="font-semibold">Status</th>
+                          <th className="font-semibold">Date Approved</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {adoptionRequests.map((req: any) => (
+                          <tr key={req.id} className="bg-transparent">
+                            <td>{req.post?.name || '-'}</td>
+                            <td>{req.owner?.full_name || req.owner_id || '-'}</td>
+                            <td>{req.post?.created_at ? new Date(req.post.created_at).toLocaleDateString() : '-'}</td>
+                            <td>{req.created_at ? new Date(req.created_at).toLocaleDateString() : '-'}</td>
+                            <td className="capitalize">{req.status}</td>
+                            <td>{req.status === 'approved' && req.updated_at ? new Date(req.updated_at).toLocaleDateString() : '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                </div>
-              ) : (
-                <div className="bg-white/90 backdrop-blur-md rounded-3xl shadow-md p-6 mb-6 reveal border border-violet-100">
-                  <h2 className="text-xl font-bold text-violet-800 mb-4 flex items-center font-['Quicksand']">
-                    <FaPaw className="mr-2 text-violet-500" />
-                    Adoption History
-                  </h2>
+                ) : (
                   <div className="text-center py-8 text-violet-600">
                     <p>You haven't adopted any pets yet</p>
                     <p className="text-sm mt-2">Your adoption history will appear here</p>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
 
               {/* Favorites */}
               {userData?.favorites && userData.favorites.length > 0 ? (
