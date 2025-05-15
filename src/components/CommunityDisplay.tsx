@@ -30,31 +30,14 @@ export const fetchCommunityPost = async (
 };
 
 export const CommunityDisplay = ({ communityId }: Props) => {
-  const [isVisible, setIsVisible] = useState(false);
+  const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
-    setIsVisible(true);
-
-    // Add scroll animation for elements
-    const observerOptions = {
-      threshold: 0.1,
-      rootMargin: "0px 0px -100px 0px"
-    };
-
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('visible');
-        }
-      });
-    }, observerOptions);
-
-    const animatedElements = document.querySelectorAll('.reveal');
-    animatedElements.forEach(el => observer.observe(el));
-
-    return () => {
-      animatedElements.forEach(el => observer.unobserve(el));
-    };
+    // Make all reveal elements visible immediately on load
+    const elements = document.querySelectorAll('.reveal');
+    elements.forEach(el => {
+      el.classList.add('visible');
+    });
   }, []);
 
   const { data, error, isLoading } = useQuery<PostWithCommunity[], Error>({
@@ -98,10 +81,10 @@ export const CommunityDisplay = ({ communityId }: Props) => {
         ))}
       </div>
       
-      <div className={`relative z-10 max-w-6xl mx-auto transition-all duration-1000 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+      <div className={`relative z-10 max-w-6xl mx-auto transition-all duration-1000 opacity-100 translate-y-0`}>
         {data && data.length > 0 ? (
           <>
-            <div className="text-center mb-10 reveal">
+            <div className="text-center mb-10 reveal visible">
               <span className="bg-violet-100 text-violet-800 px-4 py-1 rounded-full text-sm font-medium font-['Poppins'] mb-4 inline-block">Community</span>
               <h2 className="text-4xl md:text-5xl font-bold text-violet-800 font-['Quicksand']">
                 {data[0]?.communities?.name}
@@ -112,14 +95,14 @@ export const CommunityDisplay = ({ communityId }: Props) => {
               </p>
             </div>
             
-            <div className="flex flex-wrap gap-6 justify-center w-full reveal">
+            <div className="flex flex-wrap gap-6 justify-center w-full reveal visible">
               {data.map((post) => (
                 <PostItem key={post.id} post={post} />
               ))}
             </div>
           </>
         ) : (
-          <div className="flex flex-col items-center text-center py-20 reveal">
+          <div className="flex flex-col items-center text-center py-20 reveal visible">
             <div className="bg-white/80 backdrop-blur-md rounded-3xl shadow-md p-10 max-w-lg">
               <FaUsers className="text-5xl mx-auto mb-4 text-violet-300" />
               <h2 className="text-4xl font-bold mb-4 text-violet-800 font-['Quicksand']">
@@ -151,8 +134,8 @@ export const CommunityDisplay = ({ communityId }: Props) => {
             animation: float 8s ease-in-out infinite;
           }
           .reveal {
-            opacity: 0;
-            transform: translateY(20px);
+            opacity: 1; /* Start visible */
+            transform: translateY(0); /* Start in final position */
             transition: all 0.6s ease-out;
           }
           .reveal.visible {
