@@ -3,7 +3,7 @@ import { Post } from "./PostList";
 import { supabase } from "../supabase-client";
 import { PostItem } from "./PostItem";
 import { FaPaw, FaUsers } from "react-icons/fa";
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 
 interface Props {
   communityId: number;
@@ -30,8 +30,6 @@ export const fetchCommunityPost = async (
 };
 
 export const CommunityDisplay = ({ communityId }: Props) => {
-  const [isVisible, setIsVisible] = useState(true);
-
   useEffect(() => {
     // Make all reveal elements visible immediately on load
     const elements = document.querySelectorAll('.reveal');
@@ -48,7 +46,7 @@ export const CommunityDisplay = ({ communityId }: Props) => {
   if (isLoading) {
     return (
       <div className="flex justify-center items-center py-10">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-violet-500 border-r-4 border-violet-300"></div>
+        <div className="animate-spin rounded-full h-16 w-16 border-t-4  border-opacity-100 border-r-4 border-violet-300 border-opacity-50"></div>
       </div>
     );
   }

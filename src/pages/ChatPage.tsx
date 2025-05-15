@@ -51,7 +51,6 @@ const ChatPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isCreatingConversation, setIsCreatingConversation] = useState<boolean>(false);
   const [otherUser, setOtherUser] = useState<{ id: string; name: string; email?: string; avatar?: string | null } | null>(null);
-  const [loadingFailed, setLoadingFailed] = useState<boolean>(false);
   const [conversationData, setConversationData] = useState<any>(null);
   const [hasRunCleanup, setHasRunCleanup] = useState<boolean>(false);
   
@@ -65,7 +64,7 @@ const ChatPage: React.FC = () => {
       // Create or ensure user profile exists
       const createUserProfile = async () => {
         // Check if profile exists
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from('profiles')
           .select('id')
           .eq('id', user.id)
@@ -346,7 +345,7 @@ const ChatPage: React.FC = () => {
       setIsLoading(true);
       
       // First verify the conversation still exists
-      const { data: conversationExists, error: checkError } = await supabase
+      const { error: checkError } = await supabase
         .from('conversations')
         .select('id')
         .eq('id', conversationId)
@@ -512,7 +511,7 @@ const ChatPage: React.FC = () => {
     
     try {
       // First check if the conversation still exists
-      const { data: conversationExists, error: checkError } = await supabase
+      const { error: checkError } = await supabase
         .from('conversations')
         .select('id')
         .eq('id', conversationId)
@@ -996,7 +995,7 @@ const ChatPage: React.FC = () => {
     
     try {
       // First verify that the conversation exists
-      const { data: conversationExists, error: checkError } = await supabase
+      const { error: checkError } = await supabase
         .from('conversations')
         .select('id')
         .eq('id', conversationId)
@@ -1086,9 +1085,8 @@ const ChatPage: React.FC = () => {
       setIsCreatingConversation(true);
       toast.loading('Starting conversation...', { id: 'creating-convo' });
       
-      // Get the pet name and post ID from location state if available
+      // Get the pet name from location state if available
       const petName = location.state?.petName || null;
-      const postId = location.state?.postId || null;
       
       // Get other user's profile information
       const { data: otherUserProfile, error: profileError } = await supabase
@@ -1136,7 +1134,7 @@ const ChatPage: React.FC = () => {
         .rpc('find_shared_conversation', { 
           user_id_1: user.id, 
           user_id_2: otherUserId,
-          specific_post_id: postId
+          specific_post_id: null
         });
       
       // Check if we found an existing conversation for this specific post
@@ -1151,7 +1149,6 @@ const ChatPage: React.FC = () => {
             .update({ 
               title: petName,
               pet_name: petName,
-              post_id: postId,
               updated_at: new Date().toISOString()
             })
             .eq('id', conversationId);
@@ -1181,7 +1178,6 @@ const ChatPage: React.FC = () => {
           .insert({
             title: petName || `Chat with ${otherUserName}`,
             pet_name: petName,
-            post_id: postId,
             adopter_name: isCurrentUserOwner ? otherUserName : currentUserName,
             owner_name: isCurrentUserOwner ? currentUserName : otherUserName,
             is_group: false,
@@ -1365,7 +1361,7 @@ const ChatPage: React.FC = () => {
       let currentConversationMerged = false;
       let redirectToConversationId = null;
       
-      for (const { postId, ids } of postIdDuplicates) {
+      for (const {  ids } of postIdDuplicates) {
         // Get the oldest conversation first based on created_at
         const relevantConvos = convosData
           .filter(convo => ids.includes(convo.id))
@@ -1510,7 +1506,7 @@ const ChatPage: React.FC = () => {
     return (
       <div className="flex justify-center items-center py-10 h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-violet-500 border-r-4 border-violet-300 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-violet-500 border-opacity-100 border-r-4 border-opacity-50 mx-auto mb-4"></div>
           <p className="text-violet-700 font-medium">
             {isCreatingConversation ? 'Starting conversation...' : 'Loading...'}
           </p>

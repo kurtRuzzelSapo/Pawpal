@@ -193,7 +193,7 @@ export const AdoptionRequestDetails: React.FC<AdoptionRequestDetailsProps> = ({
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
         <div className="bg-white rounded-xl p-6 max-w-lg w-full mx-4 shadow-xl">
           <div className="flex justify-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-violet-500 border-r-4 border-violet-300"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-t-4  border-r-4 border-violet-300"></div>
           </div>
         </div>
       </div>

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "../supabase-client";
 import { Link } from "react-router-dom";
-import { FaPaw, FaUsers, FaCalendarAlt } from "react-icons/fa";
+import {  FaUsers, FaCalendarAlt } from "react-icons/fa";
 
 export interface Community {
   id: number;
@@ -29,7 +29,7 @@ export const CommunityList = () => {
   if (isLoading) {
     return (
       <div className="flex justify-center items-center py-10">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-violet-500 border-r-4 border-violet-300"></div>
+        <div className="animate-spin rounded-full h-16 w-16 border-t-4  border-r-4 border-violet-300"></div>
       </div>
     );
   }

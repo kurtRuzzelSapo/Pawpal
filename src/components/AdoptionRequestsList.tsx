@@ -173,7 +173,14 @@ export const AdoptionRequestsList: React.FC<AdoptionRequestsListProps> = ({ post
       return;
     }
     
-    openRequestDetails(requestId);
+    // Use the action parameter to determine what to do
+    if (action === 'view') {
+      openRequestDetails(requestId);
+    } else if (action === 'approve' || action === 'deny') {
+      // Set the selected request and open the modal for approval/denial
+      setSelectedRequestId(requestId);
+      setShowModal(true);
+    }
   };
 
   const closeModal = () => {
@@ -197,7 +204,7 @@ export const AdoptionRequestsList: React.FC<AdoptionRequestsListProps> = ({ post
   if (loading && requests.length === 0) {
     return (
       <div className="my-6 text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-violet-500 border-r-4 border-violet-300 mx-auto"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-opacity-100 border-r-4 border-violet-300 border-opacity-50 mx-auto"></div>
         <p className="mt-4 text-violet-600 font-['Poppins']">Loading adoption requests...</p>
       </div>
     );

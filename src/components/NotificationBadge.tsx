@@ -524,7 +524,7 @@ export const NotificationBadge: React.FC = () => {
           <div className="max-h-[70vh] overflow-y-auto">
             {loading ? (
               <div className="p-4 text-center">
-                <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-violet-500 border-r-2 border-violet-300 mx-auto"></div>
+                <div className="animate-spin rounded-full h-6 w-6 border-t-2  border-r-2 border-violet-300 mx-auto"></div>
                 <p className="text-sm text-gray-500 mt-2">Loading notifications...</p>
               </div>
             ) : enhancedNotifications.length > 0 ? (

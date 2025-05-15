@@ -303,7 +303,7 @@ export const CreatePost = () => {
         {/* Left column - Basic Info */}
         <div className="space-y-6">
           <div className="group">
-            <label htmlFor="name" className="block mb-2 font-medium text-violet-700 font-['Poppins'] flex items-center gap-2">
+            <label htmlFor="name" className=" mb-2 font-medium text-violet-700 font-['Poppins'] flex items-center gap-2">
               <FaPaw className="text-violet-500" />
               Pet Name
             </label>
@@ -319,7 +319,7 @@ export const CreatePost = () => {
           </div>
 
           <div className="group">
-            <label htmlFor="content" className="block mb-2 font-medium text-violet-700 font-['Poppins'] flex items-center gap-2">
+            <label htmlFor="content" className=" mb-2 font-medium text-violet-700 font-['Poppins'] flex items-center gap-2">
               <FaHeart className="text-violet-500" />
               Description
             </label>
@@ -336,7 +336,7 @@ export const CreatePost = () => {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="group">
-              <label htmlFor="age" className="block mb-2 font-medium text-violet-700 font-['Poppins'] flex items-center gap-2">
+              <label htmlFor="age" className=" mb-2 font-medium text-violet-700 font-['Poppins'] flex items-center gap-2">
                 <FaCalendarAlt className="text-violet-500" />
                 Age (months)
               </label>
@@ -351,7 +351,7 @@ export const CreatePost = () => {
             </div>
 
             <div className="group">
-              <label htmlFor="breed" className="block mb-2 font-medium text-violet-700 font-['Poppins'] flex items-center gap-2">
+              <label htmlFor="breed" className=" mb-2 font-medium text-violet-700 font-['Poppins'] flex items-center gap-2">
                 <FaPaw className="text-violet-500" />
                 Breed
               </label>
@@ -368,7 +368,7 @@ export const CreatePost = () => {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="group">
-              <label htmlFor="location" className="block mb-2 font-medium text-violet-700 font-['Poppins'] flex items-center gap-2">
+              <label htmlFor="location" className=" mb-2 font-medium text-violet-700 font-['Poppins'] flex items-center gap-2">
                 <FaMapMarkerAlt className="text-violet-500" />
                 Location
               </label>
@@ -383,7 +383,7 @@ export const CreatePost = () => {
             </div>
 
             <div className="group">
-              <label htmlFor="size" className="block mb-2 font-medium text-violet-700 font-['Poppins'] flex items-center gap-2">
+              <label htmlFor="size" className="mb-2 font-medium text-violet-700 font-['Poppins'] flex items-center gap-2">
                 <FaRuler className="text-violet-500" />
                 Size
               </label>
@@ -406,7 +406,7 @@ export const CreatePost = () => {
           </div>
 
           <div className="group">
-            <label htmlFor="status" className="block mb-2 font-medium text-violet-700 font-['Poppins'] flex items-center gap-2">
+            <label htmlFor="status" className="mb-2 font-medium text-violet-700 font-['Poppins'] flex items-center gap-2">
               <FaCheck className="text-violet-500" />
               Status
             </label>
@@ -431,7 +431,7 @@ export const CreatePost = () => {
         {/* Right column - Health & Images */}
         <div className="space-y-6">
           <div className="group">
-            <label htmlFor="temperament" className="block mb-2 font-medium text-violet-700 font-['Poppins'] flex items-center gap-2">
+            <label htmlFor="temperament" className="mb-2 font-medium text-violet-700 font-['Poppins'] flex items-center gap-2">
               <FaHeart className="text-violet-500" />
               Temperament (comma-separated)
             </label>
@@ -446,7 +446,7 @@ export const CreatePost = () => {
           </div>
 
           <div className="group">
-            <label htmlFor="healthInfo" className="block mb-2 font-medium text-violet-700 font-['Poppins'] flex items-center gap-2">
+            <label htmlFor="healthInfo" className="mb-2 font-medium text-violet-700 font-['Poppins'] flex items-center gap-2">
               <FaStethoscope className="text-violet-500" />
               Health Information
             </label>
@@ -476,7 +476,7 @@ export const CreatePost = () => {
 
             {vaccinationStatus && (
               <div className="mt-4">
-                <label htmlFor="vaccinationProof" className="block mb-2 font-medium text-violet-700 font-['Poppins'] text-sm">
+                <label htmlFor="vaccinationProof" className="mb-2 font-medium text-violet-700 font-['Poppins'] text-sm flex items-center gap-2">
                   Upload Vaccination Proof
                 </label>
                 <input
@@ -517,7 +517,7 @@ export const CreatePost = () => {
           </div>
 
           <div className="group">
-            <label className="block mb-2 font-medium text-violet-700 font-['Poppins'] flex items-center gap-2">
+            <label className="mb-2 font-medium text-violet-700 font-['Poppins'] flex items-center gap-2">
               <FaUsers className="text-violet-500" />
               Select Community
             </label>
@@ -541,7 +541,7 @@ export const CreatePost = () => {
           </div>
 
           <div className="group">
-            <label htmlFor="image" className="block mb-2 font-medium text-violet-700 font-['Poppins'] flex items-center gap-2">
+            <label htmlFor="image" className="mb-2 font-medium text-violet-700 font-['Poppins'] flex items-center gap-2">
               <FaImage className="text-violet-500" />
               Main Pet Image
             </label>
@@ -583,7 +583,7 @@ export const CreatePost = () => {
       </div>
 
       <div className="group mt-8">
-        <label htmlFor="additionalImages" className="block mb-2 font-medium text-violet-700 font-['Poppins'] flex items-center gap-2">
+        <label htmlFor="additionalImages" className="mb-2 font-medium text-violet-700 font-['Poppins'] flex items-center gap-2">
           <FaImage className="text-violet-500" />
           Additional Images (optional)
         </label>

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "../supabase-client";
 import { FaPaw, FaSearch, FaMapMarkerAlt, FaRuler, FaCalendarAlt, FaHeart, FaComment } from "react-icons/fa";
-import { Link, useNavigate } from "react-router-dom";
+import {  useNavigate } from "react-router-dom";
 
 interface SearchFilters {
   breed?: string;

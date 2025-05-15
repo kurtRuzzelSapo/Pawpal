@@ -86,7 +86,7 @@ export const PostPage = () => {
     return (
       <div className="pt-20 min-h-screen bg-gradient-to-b from-violet-50/50 via-blue-50/30 to-white px-4">
         <div className="max-w-4xl mx-auto p-6 bg-white/90 rounded-xl shadow-md backdrop-blur-md flex flex-col items-center justify-center min-h-[400px]">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-violet-500 border-r-4 border-violet-300 mb-4"></div>
+          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-r-4 border-violet-300 mb-4"></div>
           <p className="text-violet-700 font-medium">Loading pet details...</p>
         </div>
       </div>

@@ -172,31 +172,6 @@ const fetchUserBadges = async (userId: string): Promise<Badge[]> => {
   return data || [];
 };
 
-// Function to ensure the user's folder exists in the documents bucket
-const ensureUserFolderExists = async (userId: string): Promise<void> => {
-  try {
-    // We don't need to create folders explicitly in Supabase storage
-    // They're created automatically when files are uploaded to a path
-    // But we can check if the folder exists by listing its contents
-    const { data, error } = await supabase.storage
-      .from('documents')
-      .list('', { // List root folder instead of user folder
-        sortBy: { column: 'created_at', order: 'desc' }
-      });
-    
-    console.log("Storage bucket contents:", data); // Debug output
-    
-    // If we get a "not found" error, we'll create an empty folder marker
-    if (error && error.message.includes("Not Found")) {
-      // No need to create a folder if listing the root
-      console.log("Root folder not found, but this shouldn't happen");
-    }
-  } catch (error) {
-    console.error("Error checking storage bucket:", error);
-    // We'll continue anyway and let the upload handle any errors
-  }
-};
-
 const fetchUserDocuments = async (userId: string): Promise<UserDocument[]> => {
   try {
     console.log("Fetching documents for user:", userId);
@@ -521,7 +496,7 @@ export const UserProfile = ({ profileId }: UserProfileProps) => {
       
       // Process files and update UI directly without going through the query system
       if (allFiles && allFiles.length > 0) {
-        const processedFiles = await Promise.all(
+        await Promise.all(
           allFiles.map(async (file) => {
             const { data: urlData } = await supabase.storage
               .from('documents')
@@ -657,7 +632,7 @@ export const UserProfile = ({ profileId }: UserProfileProps) => {
   if (userLoading || badgesLoading || postsLoading || documentsLoading) {
     return (
       <div className="flex justify-center items-center py-10 min-h-[80vh]">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-violet-500 border-r-4 border-violet-300"></div>
+        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-violet-500 border-opacity-100 border-r-4  border-opacity-50"></div>
       </div>
     );
   }
@@ -1164,7 +1139,7 @@ export const UserProfile = ({ profileId }: UserProfileProps) => {
                       <p className="text-xl mb-2 text-violet-700">No images uploaded yet</p>
                       <button
                         onClick={() => setIsUploadingDoc(true)}
-                        className="mt-4 inline-block bg-gradient-to-r from-violet-500 to-blue-500 text-white px-6 py-3 rounded-xl font-medium hover:from-violet-600 hover:to-blue-600 transform hover:scale-105 transition-all duration-300 shadow-md flex items-center gap-2 mx-auto"
+                        className="mt-4 bg-gradient-to-r from-violet-500 to-blue-500 text-white px-6 py-3 rounded-xl font-medium hover:from-violet-600 hover:to-blue-600 transform hover:scale-105 transition-all duration-300 shadow-md flex items-center gap-2 mx-auto"
                       >
                         <FaPlusCircle /> Upload Your First Image
                       </button>
@@ -1259,6 +1234,24 @@ export const UserProfile = ({ profileId }: UserProfileProps) => {
                   </div>
                 </div>
               )}
+
+              {/* Display badges if available */}
+              {badges && badges.length > 0 && (
+                <div className="bg-white/90 backdrop-blur-md rounded-3xl shadow-md p-6 mb-6 reveal border border-violet-100">
+                  <h2 className="text-xl font-bold text-violet-800 mb-4 flex items-center font-['Quicksand']">
+                    <FaShieldAlt className="mr-2 text-violet-500" />
+                    Badges & Achievements
+                  </h2>
+                  <div className="flex flex-wrap gap-3">
+                    {badges.map((badge) => (
+                      <div key={badge.id} className="bg-violet-50 px-3 py-2 rounded-lg border border-violet-100">
+                        <span className="font-medium text-violet-700 capitalize">{badge.badge_type}</span>
+                        <p className="text-xs text-violet-500">Awarded: {new Date(badge.awarded_at).toLocaleDateString()}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -1318,7 +1311,7 @@ export const UserProfile = ({ profileId }: UserProfileProps) => {
                     <p className="text-xl mb-2 text-violet-700">You haven't posted any pets yet</p>
                     <Link 
                       to="/create"
-                      className="mt-4 inline-block bg-gradient-to-r from-violet-500 to-blue-500 text-white px-6 py-3 rounded-xl font-medium hover:from-violet-600 hover:to-blue-600 transform hover:scale-105 transition-all duration-300 shadow-md"
+                      className="mt-4 bg-gradient-to-r from-violet-500 to-blue-500 text-white px-6 py-3 rounded-xl font-medium hover:from-violet-600 hover:to-blue-600 transform hover:scale-105 transition-all duration-300 shadow-md flex items-center justify-center gap-2 mx-auto"
                     >
                       Create Your First Post
                     </Link>

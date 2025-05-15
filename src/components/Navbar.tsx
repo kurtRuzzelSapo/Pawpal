@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { NavLink, Link, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { FaPaw, FaHome, FaSearch, FaPlusCircle, FaUsers, FaUserPlus, FaComment } from "react-icons/fa";
+import { FaPaw, FaHome, FaSearch, FaPlusCircle, FaUsers, FaUserPlus, } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { NotificationBadge } from "./NotificationBadge";
 import { ChatBadge } from "./ChatBadge";

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "../supabase-client";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { FaHeart, FaComment, FaPaw, FaMapMarkerAlt, FaCalendarAlt, FaRuler } from "react-icons/fa";
+import {  FaPaw, FaMapMarkerAlt, FaCalendarAlt, FaRuler } from "react-icons/fa";
 import { MdPets } from "react-icons/md";
 
 export interface Post {
@@ -35,13 +35,9 @@ export const PostList = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
-  const [likedPosts, setLikedPosts] = useState<number[]>([]);
 
   useEffect(() => {
     fetchPosts();
-    if (user) {
-      fetchLikedPosts();
-    }
   }, [user]);
 
   const fetchPosts = async () => {
@@ -102,80 +98,6 @@ export const PostList = () => {
     }
   };
 
-  const fetchLikedPosts = async () => {
-    if (!user) return;
-    try {
-      const { data, error } = await supabase
-        .from("likes")
-        .select("post_id")
-        .eq("user_id", user.id);
-
-      if (!error && data) {
-        setLikedPosts(data.map(like => parseInt(like.post_id)));
-      }
-    } catch (error) {
-      console.error("Error fetching liked posts:", error);
-    }
-  };
-
-  const handleLike = async (postId: number) => {
-    if (!user) return;
-
-    try {
-      // First check if the post exists
-      const { data: postExists, error: postError } = await supabase
-        .from("post")
-        .select("id")
-        .eq("id", postId)
-        .single();
-
-      if (postError || !postExists) {
-        console.error("Post does not exist:", postError);
-        return;
-      }
-
-      // Then check if the user has already liked the post
-      const { data: existingLike, error: likeCheckError } = await supabase
-        .from("likes")
-        .select("*")
-        .eq("post_id", postId)
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (likeCheckError) throw likeCheckError;
-
-      if (existingLike) {
-        // Unlike
-        const { error: deleteError } = await supabase
-          .from("likes")
-          .delete()
-          .eq("post_id", postId)
-          .eq("user_id", user.id);
-
-        if (deleteError) throw deleteError;
-        setLikedPosts(prev => prev.filter(id => id !== postId));
-      } else {
-        // Like
-        const { error: insertError } = await supabase
-          .from("likes")
-          .insert([
-            {
-              post_id: postId,
-              user_id: user.id,
-            },
-          ]);
-
-        if (insertError) throw insertError;
-        setLikedPosts(prev => [...prev, postId]);
-      }
-
-      // Refresh posts to update counts
-      fetchPosts();
-    } catch (error) {
-      console.error("Error handling like:", error);
-    }
-  };
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Available':
@@ -192,7 +114,7 @@ export const PostList = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center py-10">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-violet-500 border-r-4 border-violet-300"></div>
+        <div className="animate-spin rounded-full h-16 w-16 border-t-4  border-opacity-100 border-r-4 border-violet-300 border-opacity-50"></div>
       </div>
     );
   }

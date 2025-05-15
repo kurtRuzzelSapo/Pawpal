@@ -4,7 +4,7 @@ import { supabase } from "../supabase-client";
 import { Post } from "./PostList";
 import { LikeButton } from "./LikeButton";
 import { CommentSection } from "./CommentSection";
-import { FaPaw, FaMapMarkerAlt, FaSyringe, FaRuler, FaArrowLeft, FaTrash, FaCalendarAlt, FaHeartbeat, FaClock, FaHeart, FaHandHoldingHeart, FaEnvelope } from "react-icons/fa";
+import { FaPaw, FaMapMarkerAlt, FaSyringe, FaRuler, FaArrowLeft, FaTrash, FaCalendarAlt, FaHeartbeat, FaClock, FaHandHoldingHeart, FaEnvelope } from "react-icons/fa";
 import { MdPets } from "react-icons/md";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -132,7 +132,7 @@ const sendAdoptionRequest = async (
         {
           user_id: ownerId,
           type: "adoption_request",
-          message: `New adoption request for pet ID ${postId}`,
+          message: `New adoption request for ${petName}`,
           created_at: new Date().toISOString(),
           read: false,
           link: `/post/${postId}`
@@ -403,7 +403,7 @@ export const PostDetail = ({ postId }: { postId: string }) => {
   if (isLoading || (!post && loadingAttempts < 2)) {
     return (
       <div className="max-w-4xl mx-auto p-6 bg-white/90 rounded-xl shadow-md backdrop-blur-md flex flex-col items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-violet-500 border-r-4 border-violet-300 mb-4"></div>
+        <div className="animate-spin rounded-full h-16 w-16 border-t-4  border-r-4 border-violet-300 mb-4"></div>
         <p className="text-violet-700 font-medium">Loading pet details...</p>
       </div>
     );
