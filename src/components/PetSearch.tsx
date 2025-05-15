@@ -276,7 +276,7 @@ export const PetSearch = () => {
               <div className="p-5">
                 <h3 className="text-xl font-bold text-violet-800 mb-2 font-['Quicksand']">{pet.name}</h3>
                 <p className="text-violet-600 text-sm mb-3 flex items-center gap-2 font-['Poppins']">
-                  <FaPaw className="text-violet-400" /> {pet.breed} • {pet.age} years
+                  <FaPaw className="text-violet-400" /> {pet.breed} • {pet.age} months
                   <span className="mx-1">•</span>
                   <FaMapMarkerAlt className="text-violet-400" /> {pet.location}
                 </p>
