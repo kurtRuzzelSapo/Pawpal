@@ -24,7 +24,7 @@ const AboutPage = () => {
       
       {/* Navigation */}
       <nav className="bg-white/80 backdrop-blur-md shadow-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="w-full px-2 sm:px-4 md:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
               <Link to="/" className="flex items-center">
