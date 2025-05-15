@@ -13,6 +13,8 @@ interface UserData {
   verified: boolean;
   adoption_history: string[];
   favorites: string[];
+  username?: string;
+  avatar_url?: string;
 }
 
 interface Badge {
@@ -51,6 +53,7 @@ interface UserDocument {
   bucket?: string;
   fromDatabase?: boolean;
   full_path?: string;
+  user_id?: string | null;
 }
 
 
@@ -134,7 +137,9 @@ const fetchUserData = async (userId: string): Promise<UserData> => {
       is_shelter: false,
       verified: false,
       adoption_history: [],
-      favorites: []
+      favorites: [],
+      username: "",
+      avatar_url: ""
     };
 
     const { data: newUser, error: createError } = await supabase
@@ -231,26 +236,37 @@ const fetchUserDocuments = async (userId: string): Promise<UserDocument[]> => {
           url: publicUrlData.publicUrl,
           size: file.metadata?.size || 0,
           content_type: file.metadata?.mimetype || guessContentType(file.name),
-          bucket: 'documents'
+          bucket: 'documents',
+          user_id: extractUserIdFromFilename(file.name) // Extract user ID from filename
         };
       })
     );
     
-    // Filter to only show files that appear to belong to this user
-    // This is a client-side filter since we're not using path-based filtering
-    const userDocuments = documents.filter(doc => 
-      // Attempt to identify user files by naming convention
-      doc.name.includes(`user_upload_`) || 
-      doc.name.includes(`${userId}`)
-    );
+    // Filter to only show files that belong to this user
+    const userDocuments = documents.filter(doc => {
+      // Check if filename contains user ID indicators
+      const belongsToUser = 
+        (doc.name.includes(`user_upload_`) && doc.name.includes(`_${userId}_`)) || // New format with user ID
+        (doc.name.includes(`user_upload_`) && doc.user_id === userId) || // Extract user ID if possible
+        doc.name.includes(`${userId}`); // Direct user ID in filename
+        
+      return belongsToUser;
+    });
     
-    console.log("User documents:", userDocuments);
+    console.log("Filtered user documents:", userDocuments);
     
     return userDocuments;
   } catch (error) {
     console.error('Error fetching documents:', error);
     return [];
   }
+};
+
+// Helper function to extract user ID from filename if present
+const extractUserIdFromFilename = (filename: string): string | null => {
+  // Check if filename contains user ID pattern like "user_upload_UID_123456_filename.jpg"
+  const userIdMatch = filename.match(/user_upload_([a-zA-Z0-9-]+)_/);
+  return userIdMatch ? userIdMatch[1] : null;
 };
 
 // Helper function to guess content type from filename
@@ -274,7 +290,11 @@ const guessContentType = (filename: string): string => {
   }
 };
 
-export const UserProfile = () => {
+interface UserProfileProps {
+  profileId?: string; // Optional profile ID to view someone else's profile
+}
+
+export const UserProfile = ({ profileId }: UserProfileProps) => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'profile' | 'posts' | 'analytics'>('profile');
   const [isEditingBio, setIsEditingBio] = useState(false);
@@ -289,6 +309,12 @@ export const UserProfile = () => {
   // File input reference
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Determine which user profile to show - current user or requested profile
+  const targetUserId = profileId || (user?.id || "");
+  
+  // Check if viewing own profile
+  const isOwnProfile = !profileId || (user && profileId === user.id);
+
   useEffect(() => {
     // Make all reveal elements visible immediately on load
     const elements = document.querySelectorAll('.reveal');
@@ -298,9 +324,9 @@ export const UserProfile = () => {
   }, [activeTab]);
 
   const { data: userData, isLoading: userLoading, error: userError, refetch: refetchUser } = useQuery<UserData, Error>({
-    queryKey: ["userData", user?.id],
-    queryFn: () => fetchUserData(user!.id),
-    enabled: !!user,
+    queryKey: ["userData", targetUserId],
+    queryFn: () => fetchUserData(targetUserId),
+    enabled: targetUserId !== "",
     retry: 1
   });
 
@@ -313,7 +339,7 @@ export const UserProfile = () => {
 
   // Function to update bio
   const updateBio = async () => {
-    if (!user) return;
+    if (!user || !isOwnProfile) return;
     
     try {
       const { error } = await supabase
@@ -334,31 +360,10 @@ export const UserProfile = () => {
     }
   };
 
-  // Query for user documents
-  const { data: userDocuments, isLoading: documentsLoading, refetch: refetchDocuments } = useQuery<UserDocument[], Error>({
-    queryKey: ["userDocuments", user?.id],
-    queryFn: () => fetchUserDocuments(user!.id),
-    enabled: !!user,
-    refetchOnWindowFocus: false,
-    staleTime: 60000, // Consider data fresh for 1 minute
-  });
-
-  // Filter documents to only show images
-  const imageDocuments = userDocuments?.filter(doc => {
-    const isImage = doc.content_type?.includes('image');
-    console.log(`File ${doc.name}: content_type=${doc.content_type}, isImage=${isImage}`);
-    return isImage;
-  }) || [];
-
-  useEffect(() => {
-    // Debug output whenever image documents change
-    console.log("Image documents:", imageDocuments);
-  }, [imageDocuments]);
-
   // Function to handle document upload
   const handleDocUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !user) return;
+    if (!file || !user || !isOwnProfile) return;
     
     try {
       setIsUploading(true);
@@ -371,8 +376,8 @@ export const UserProfile = () => {
         return;
       }
       
-      // Create a unique filename with the user ID and timestamp
-      const fileName = `user_upload_${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+      // Create a unique filename WITH USER ID to ensure proper filtering
+      const fileName = `user_upload_${user.id}_${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
       // Using a generic path that doesn't require user_id in path for RLS
       const filePath = fileName;
       
@@ -491,7 +496,7 @@ export const UserProfile = () => {
 
   // Function to delete a document - simplified to avoid RLS issues
   const handleDeleteDocument = async (fileName: string, fullPath?: string) => {
-    if (!user) return;
+    if (!user || !isOwnProfile) return;
     
     try {
       setUploadMessage("Deleting document...");
@@ -529,21 +534,42 @@ export const UserProfile = () => {
     }
   };
 
-  const { data: badges, isLoading: badgesLoading } = useQuery<Badge[], Error>({
-    queryKey: ["userBadges", user?.id],
-    queryFn: () => fetchUserBadges(user!.id),
-    enabled: !!user,
+  // Query for user documents - only fetch for own profile
+  const { data: userDocuments, isLoading: documentsLoading, refetch: refetchDocuments } = useQuery<UserDocument[], Error>({
+    queryKey: ["userDocuments", targetUserId],
+    queryFn: () => fetchUserDocuments(targetUserId),
+    enabled: targetUserId !== "" && (isOwnProfile === true),
+    refetchOnWindowFocus: false,
+    staleTime: 60000,
   });
-  
+
+  // Filter documents to only show images with proper typing
+  const imageDocuments = (userDocuments || []).filter((doc: UserDocument) => {
+    const isImage = doc.content_type?.includes('image');
+    console.log(`File ${doc.name}: content_type=${doc.content_type}, isImage=${isImage}`);
+    return isImage;
+  });
+
+  useEffect(() => {
+    // Debug output whenever image documents change
+    console.log("Image documents:", imageDocuments);
+  }, [imageDocuments]);
+
   // Query for user posts
   const { data: userPosts, isLoading: postsLoading } = useQuery<Post[], Error>({
-    queryKey: ["userPosts", user?.id],
-    queryFn: () => fetchUserPosts(user!.id),
-    enabled: !!user,
+    queryKey: ["userPosts", targetUserId],
+    queryFn: () => fetchUserPosts(targetUserId),
+    enabled: !!targetUserId,
   });
   
   // Calculate user stats from posts
   const userStats: UserStats | undefined = userPosts ? calculateUserStats(userPosts) : undefined;
+
+  const { data: badges, isLoading: badgesLoading } = useQuery<Badge[], Error>({
+    queryKey: ["userBadges", targetUserId],
+    queryFn: () => fetchUserBadges(targetUserId),
+    enabled: !!targetUserId,
+  });
 
   if (!user) {
     return (
@@ -654,12 +680,14 @@ export const UserProfile = () => {
                   >
                     <FaDownload size={14} /> Download
                   </a>
-                  <button
-                    onClick={() => handleDeleteDocument(selectedDocument.name, selectedDocument.full_path)}
-                    className="text-red-600 hover:text-red-800 flex items-center gap-1"
-                  >
-                    <FaTimesCircle size={14} /> Delete
-                  </button>
+                  {isOwnProfile && (
+                    <button
+                      onClick={() => handleDeleteDocument(selectedDocument.name, selectedDocument.full_path)}
+                      className="text-red-600 hover:text-red-800 flex items-center gap-1"
+                    >
+                      <FaTimesCircle size={14} /> Delete
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -670,7 +698,9 @@ export const UserProfile = () => {
         {showImagesGallery && (
           <div className="fixed inset-0 bg-black/90 z-50 flex flex-col" onClick={() => setShowImagesGallery(false)}>
             <div className="p-4 flex justify-between items-center bg-violet-800/30 backdrop-blur-sm">
-              <h3 className="text-white font-medium text-xl">Your Images Gallery</h3>
+              <h3 className="text-white font-medium text-xl">
+                {isOwnProfile ? "Your Images Gallery" : "Images Gallery"}
+              </h3>
               <button 
                 onClick={() => setShowImagesGallery(false)}
                 className="text-white hover:text-violet-200 text-2xl"
@@ -681,7 +711,7 @@ export const UserProfile = () => {
             <div className="flex-1 overflow-auto p-6" onClick={(e) => e.stopPropagation()}>
               {imageDocuments.length > 0 ? (
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {imageDocuments.map((image, index) => (
+                  {imageDocuments.map((image: UserDocument, index: number) => (
                     <div 
                       key={index}
                       className="relative group rounded-xl overflow-hidden shadow-lg bg-violet-900/20 hover:shadow-xl transition-all duration-300"
@@ -708,15 +738,17 @@ export const UserProfile = () => {
                           >
                             <FaDownload size={14} />
                           </a>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteDocument(image.name, image.full_path);
-                            }}
-                            className="p-1.5 bg-red-500/80 hover:bg-red-600 text-white rounded-lg transition-colors"
-                          >
-                            <FaTimesCircle size={14} />
-                          </button>
+                          {isOwnProfile && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteDocument(image.name, image.full_path);
+                              }}
+                              className="p-1.5 bg-red-500/80 hover:bg-red-600 text-white rounded-lg transition-colors"
+                            >
+                              <FaTimesCircle size={14} />
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -726,17 +758,21 @@ export const UserProfile = () => {
                 <div className="flex flex-col items-center justify-center h-full text-white">
                   <FaFileImage className="text-6xl mb-4 text-violet-300" />
                   <p className="text-xl mb-2">No images uploaded yet</p>
-                  <p className="text-sm opacity-70 mb-6">Upload images to view them in this gallery</p>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowImagesGallery(false);
-                      setIsUploadingDoc(true);
-                    }}
-                    className="bg-gradient-to-r from-violet-500 to-blue-500 text-white px-6 py-3 rounded-xl font-medium hover:from-violet-600 hover:to-blue-600 transition-all"
-                  >
-                    Upload Images
-                  </button>
+                  {isOwnProfile && (
+                    <>
+                      <p className="text-sm opacity-70 mb-6">Upload images to view them in this gallery</p>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowImagesGallery(false);
+                          setIsUploadingDoc(true);
+                        }}
+                        className="bg-gradient-to-r from-violet-500 to-blue-500 text-white px-6 py-3 rounded-xl font-medium hover:from-violet-600 hover:to-blue-600 transition-all"
+                      >
+                        Upload Images
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -763,14 +799,14 @@ export const UserProfile = () => {
 
         <div className="text-center mb-4">
           <h2 className="text-3xl md:text-4xl font-bold text-violet-800 font-['Quicksand']">
-            Your Account
+            {isOwnProfile ? "Your Account" : "User Profile"}
           </h2>
           <div className="w-24 h-1 bg-gradient-to-r from-violet-500 to-blue-500 mx-auto mt-2 mb-4"></div>
         </div>
 
-        {/* Tab Navigation - styled to match your screenshot exactly */}
+        {/* Tab Navigation - only show all tabs for own profile */}
         <div className="mb-6 bg-white/90 backdrop-blur-lg rounded-xl overflow-hidden shadow-sm">
-          <div className="grid grid-cols-3">
+          <div className={`grid ${isOwnProfile ? 'grid-cols-3' : 'grid-cols-1'}`}>
             <button
               onClick={() => setActiveTab('profile')}
               className={`py-3 px-2 flex items-center justify-center gap-2 font-medium transition-all ${
@@ -782,28 +818,33 @@ export const UserProfile = () => {
               <FaUser className="text-lg" /> 
               <span className="text-sm md:text-base">Profile</span>
             </button>
-            <button
-              onClick={() => setActiveTab('posts')}
-              className={`py-3 px-2 flex items-center justify-center gap-2 font-medium transition-all ${
-                activeTab === 'posts' 
-                  ? 'bg-gradient-to-r from-violet-500 to-blue-500 text-white' 
-                  : 'bg-transparent text-violet-700 hover:bg-violet-50'
-              }`}
-            >
-              <FaPaw className="text-lg" /> 
-              <span className="text-sm md:text-base">Your Posts</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('analytics')}
-              className={`py-3 px-2 flex items-center justify-center gap-2 font-medium transition-all ${
-                activeTab === 'analytics' 
-                  ? 'bg-gradient-to-r from-violet-500 to-blue-500 text-white' 
-                  : 'bg-transparent text-violet-700 hover:bg-violet-50'
-              }`}
-            >
-              <FaChartPie className="text-lg" /> 
-              <span className="text-sm md:text-base">Analytics</span>
-            </button>
+            
+            {isOwnProfile && (
+              <>
+                <button
+                  onClick={() => setActiveTab('posts')}
+                  className={`py-3 px-2 flex items-center justify-center gap-2 font-medium transition-all ${
+                    activeTab === 'posts' 
+                      ? 'bg-gradient-to-r from-violet-500 to-blue-500 text-white' 
+                      : 'bg-transparent text-violet-700 hover:bg-violet-50'
+                  }`}
+                >
+                  <FaPaw className="text-lg" /> 
+                  <span className="text-sm md:text-base">Your Posts</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('analytics')}
+                  className={`py-3 px-2 flex items-center justify-center gap-2 font-medium transition-all ${
+                    activeTab === 'analytics' 
+                      ? 'bg-gradient-to-r from-violet-500 to-blue-500 text-white' 
+                      : 'bg-transparent text-violet-700 hover:bg-violet-50'
+                  }`}
+                >
+                  <FaChartPie className="text-lg" /> 
+                  <span className="text-sm md:text-base">Analytics</span>
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -818,7 +859,13 @@ export const UserProfile = () => {
                   <div className="flex items-center space-x-4">
                     <div className="relative">
                       <div className="absolute -inset-1 bg-gradient-to-r from-violet-400 to-blue-400 rounded-full opacity-75 blur-sm"></div>
-                      {user.user_metadata?.avatar_url ? (
+                      {userData?.avatar_url ? (
+                        <img 
+                          src={userData.avatar_url} 
+                          alt="User Avatar" 
+                          className="w-20 h-20 rounded-full object-cover relative border-2 border-white"
+                        />
+                      ) : user?.user_metadata?.avatar_url && isOwnProfile ? (
                         <img 
                           src={user.user_metadata.avatar_url} 
                           alt="User Avatar" 
@@ -832,7 +879,9 @@ export const UserProfile = () => {
                     </div>
                     <div>
                       <h1 className="text-2xl font-bold text-violet-800 font-['Quicksand'] flex items-center">
-                        {user.user_metadata?.full_name || user.email}
+                        {isOwnProfile ? 
+                          (user?.user_metadata?.full_name || user?.email) : 
+                          (userData?.username || "User")}
                         {userData?.verified && (
                           <span className="ml-2 text-blue-500 text-sm bg-blue-100 px-2 py-0.5 rounded-full font-['Poppins'] flex items-center">
                             <FaShieldAlt className="mr-1" /> Verified
@@ -857,16 +906,18 @@ export const UserProfile = () => {
                 <div className="mt-4">
                   <div className="flex justify-between items-center mb-2">
                     <h3 className="text-lg font-semibold text-violet-800 font-['Quicksand']">About Me</h3>
-                    <button 
-                      onClick={() => setIsEditingBio(!isEditingBio)}
-                      className="text-sm text-violet-600 hover:text-violet-800 flex items-center gap-1"
-                    >
-                      <span>{isEditingBio ? "Cancel" : "Edit"}</span>
-                      {!isEditingBio && <span>✏️</span>}
-                    </button>
+                    {isOwnProfile && (
+                      <button 
+                        onClick={() => setIsEditingBio(!isEditingBio)}
+                        className="text-sm text-violet-600 hover:text-violet-800 flex items-center gap-1"
+                      >
+                        <span>{isEditingBio ? "Cancel" : "Edit"}</span>
+                        {!isEditingBio && <span>✏️</span>}
+                      </button>
+                    )}
                   </div>
                   
-                  {isEditingBio ? (
+                  {isOwnProfile && isEditingBio ? (
                     <div>
                       <textarea
                         value={newBio}
@@ -891,148 +942,150 @@ export const UserProfile = () => {
                 </div>
               </div>
 
-              {/* Image Gallery Section - Enhanced UI */}
-              <div className="bg-white/90 backdrop-blur-md rounded-3xl shadow-md p-6 mb-6 reveal border border-violet-100">
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-xl font-bold text-violet-800 flex items-center font-['Quicksand']">
-                    <FaFileImage className="mr-2 text-violet-500" />
-                    My Images {imageDocuments ? `(${imageDocuments.length})` : '(0)'}
-                  </h2>
-                  <button
-                    onClick={() => setIsUploadingDoc(true)}
-                    className="bg-gradient-to-r from-violet-500 to-blue-500 text-white px-3 py-1.5 rounded-lg text-sm hover:from-violet-600 hover:to-blue-600 transition-all flex items-center gap-1"
-                  >
-                    <FaPlusCircle className="text-sm" /> Upload New Image
-                  </button>
-                </div>
-                
-                {uploadMessage && (
-                  <div className={`p-3 rounded-lg mb-4 text-center ${
-                    uploadMessage.includes("success") 
-                      ? "bg-green-50 text-green-700 border border-green-200" 
-                      : uploadMessage.includes("failed") || uploadMessage.includes("Error")
-                        ? "bg-red-50 text-red-700 border border-red-200"
-                        : "bg-blue-50 text-blue-700 border border-blue-200"
-                  }`}>
-                    {uploadMessage}
+              {/* Image Gallery Section - Enhanced UI - Only show for own profile */}
+              {isOwnProfile && (
+                <div className="bg-white/90 backdrop-blur-md rounded-3xl shadow-md p-6 mb-6 reveal border border-violet-100">
+                  <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-xl font-bold text-violet-800 flex items-center font-['Quicksand']">
+                      <FaFileImage className="mr-2 text-violet-500" />
+                      My Images {imageDocuments ? `(${imageDocuments.length})` : '(0)'}
+                    </h2>
+                    <button
+                      onClick={() => setIsUploadingDoc(true)}
+                      className="bg-gradient-to-r from-violet-500 to-blue-500 text-white px-3 py-1.5 rounded-lg text-sm hover:from-violet-600 hover:to-blue-600 transition-all flex items-center gap-1"
+                    >
+                      <FaPlusCircle className="text-sm" /> Upload New Image
+                    </button>
                   </div>
-                )}
-
-                {isUploadingDoc && (
-                  <div className="mt-4 p-4 bg-violet-50 rounded-xl border border-violet-100">
-                    <h3 className="text-lg font-medium text-violet-800 mb-2">Upload Image</h3>
-                    <p className="text-sm text-violet-600 mb-4">
-                      Upload an image to your profile. Supported formats: JPG, PNG, GIF, WebP.
-                    </p>
-                    
-                    <input
-                      type="file"
-                      id="imageUpload"
-                      ref={fileInputRef}
-                      onChange={handleDocUpload}
-                      accept="image/*"
-                      className="hidden"
-                    />
-                    <div className="w-full flex items-center justify-center p-6 border-2 border-dashed border-violet-200 rounded-lg cursor-pointer hover:bg-violet-100/50 transition bg-white">
-                      <label htmlFor="imageUpload" className="flex flex-col items-center cursor-pointer">
-                        <FaFileImage className="text-4xl text-violet-400" />
-                        <span className="text-sm text-violet-500 mt-2 text-center font-['Poppins']">
-                          Click to select an image
-                        </span>
-                        {isUploading && (
-                          <div className="mt-3 flex items-center">
-                            <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-r-2 border-violet-600 mr-2"></div>
-                            <span className="text-sm text-violet-600">Uploading...</span>
-                          </div>
-                        )}
-                      </label>
+                  
+                  {uploadMessage && (
+                    <div className={`p-3 rounded-lg mb-4 text-center ${
+                      uploadMessage.includes("success") 
+                        ? "bg-green-50 text-green-700 border border-green-200" 
+                        : uploadMessage.includes("failed") || uploadMessage.includes("Error")
+                          ? "bg-red-50 text-red-700 border border-red-200"
+                          : "bg-blue-50 text-blue-700 border border-blue-200"
+                    }`}>
+                      {uploadMessage}
                     </div>
-                  </div>
-                )}
-                
-                {imageDocuments && imageDocuments.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4">
-                    {imageDocuments.map((image, index) => (
-                      <div 
-                        key={index} 
-                        className="bg-white rounded-xl overflow-hidden shadow hover:shadow-md transition-shadow border border-violet-100"
-                      >
-                        <div className="relative aspect-square">
-                          <img 
-                            src={image.url} 
-                            alt=""
-                            className="w-full h-full object-cover cursor-pointer"
-                            onClick={() => {
-                              setSelectedDocument(image);
-                              setShowDocumentModal(true);
-                            }}
-                            onError={(e) => {
-                              console.error(`Error loading image: ${image.url}`);
-                              e.currentTarget.src = 'https://via.placeholder.com/300x300?text=Image+Error';
-                            }}
-                          />
-                        </div>
-                        <div className="p-3">
-                          <div className="flex justify-between items-center">
-                            <p className="text-sm text-gray-500">
-                              {new Date(image.created_at).toLocaleDateString()}
-                            </p>
-                            <div className="flex space-x-1">
-                              <button 
-                                onClick={() => {
-                                  setSelectedDocument(image);
-                                  setShowDocumentModal(true);
-                                }}
-                                className="p-1.5 bg-violet-100 text-violet-700 rounded-lg hover:bg-violet-200 transition-all"
-                                title="View image"
-                              >
-                                <FaEye size={14} />
-                              </button>
-                              <a 
-                                href={image.url} 
-                                download
-                                className="p-1.5 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-all"
-                                title="Download image"
-                              >
-                                <FaDownload size={14} />
-                              </a>
-                              <button
-                                onClick={() => handleDeleteDocument(image.name, image.full_path)}
-                                className="p-1.5 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-all"
-                                title="Delete image"
-                              >
-                                <FaTimesCircle size={14} />
-                              </button>
+                  )}
+
+                  {isUploadingDoc && (
+                    <div className="mt-4 p-4 bg-violet-50 rounded-xl border border-violet-100">
+                      <h3 className="text-lg font-medium text-violet-800 mb-2">Upload Image</h3>
+                      <p className="text-sm text-violet-600 mb-4">
+                        Upload an image to your profile. Supported formats: JPG, PNG, GIF, WebP.
+                      </p>
+                      
+                      <input
+                        type="file"
+                        id="imageUpload"
+                        ref={fileInputRef}
+                        onChange={handleDocUpload}
+                        accept="image/*"
+                        className="hidden"
+                      />
+                      <div className="w-full flex items-center justify-center p-6 border-2 border-dashed border-violet-200 rounded-lg cursor-pointer hover:bg-violet-100/50 transition bg-white">
+                        <label htmlFor="imageUpload" className="flex flex-col items-center cursor-pointer">
+                          <FaFileImage className="text-4xl text-violet-400" />
+                          <span className="text-sm text-violet-500 mt-2 text-center font-['Poppins']">
+                            Click to select an image
+                          </span>
+                          {isUploading && (
+                            <div className="mt-3 flex items-center">
+                              <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-r-2 border-violet-600 mr-2"></div>
+                              <span className="text-sm text-violet-600">Uploading...</span>
+                            </div>
+                          )}
+                        </label>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {imageDocuments && imageDocuments.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4">
+                      {imageDocuments.map((image: UserDocument, index: number) => (
+                        <div 
+                          key={index} 
+                          className="bg-white rounded-xl overflow-hidden shadow hover:shadow-md transition-shadow border border-violet-100"
+                        >
+                          <div className="relative aspect-square">
+                            <img 
+                              src={image.url} 
+                              alt=""
+                              className="w-full h-full object-cover cursor-pointer"
+                              onClick={() => {
+                                setSelectedDocument(image);
+                                setShowDocumentModal(true);
+                              }}
+                              onError={(e) => {
+                                console.error(`Error loading image: ${image.url}`);
+                                e.currentTarget.src = 'https://via.placeholder.com/300x300?text=Image+Error';
+                              }}
+                            />
+                          </div>
+                          <div className="p-3">
+                            <div className="flex justify-between items-center">
+                              <p className="text-sm text-gray-500">
+                                {new Date(image.created_at).toLocaleDateString()}
+                              </p>
+                              <div className="flex space-x-1">
+                                <button 
+                                  onClick={() => {
+                                    setSelectedDocument(image);
+                                    setShowDocumentModal(true);
+                                  }}
+                                  className="p-1.5 bg-violet-100 text-violet-700 rounded-lg hover:bg-violet-200 transition-all"
+                                  title="View image"
+                                >
+                                  <FaEye size={14} />
+                                </button>
+                                <a 
+                                  href={image.url} 
+                                  download
+                                  className="p-1.5 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-all"
+                                  title="Download image"
+                                >
+                                  <FaDownload size={14} />
+                                </a>
+                                <button
+                                  onClick={() => handleDeleteDocument(image.name, image.full_path)}
+                                  className="p-1.5 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-all"
+                                  title="Delete image"
+                                >
+                                  <FaTimesCircle size={14} />
+                                </button>
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 bg-violet-50 rounded-xl mt-4">
-                    <FaFileImage className="text-5xl mx-auto mb-4 text-violet-300" />
-                    <p className="text-xl mb-2 text-violet-700">No images uploaded yet</p>
-                    <button
-                      onClick={() => setIsUploadingDoc(true)}
-                      className="mt-4 inline-block bg-gradient-to-r from-violet-500 to-blue-500 text-white px-6 py-3 rounded-xl font-medium hover:from-violet-600 hover:to-blue-600 transform hover:scale-105 transition-all duration-300 shadow-md flex items-center gap-2 mx-auto"
-                    >
-                      <FaPlusCircle /> Upload Your First Image
-                    </button>
-                  </div>
-                )}
-                
-                {imageDocuments && imageDocuments.length > 0 && (
-                  <div className="mt-4 text-center">
-                    <button
-                      onClick={() => setShowImagesGallery(true)}
-                      className="text-violet-600 hover:text-violet-800 font-medium flex items-center gap-1.5 mx-auto"
-                    >
-                      <FaEye size={16} /> View All Images in Gallery
-                    </button>
-                  </div>
-                )}
-              </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 bg-violet-50 rounded-xl mt-4">
+                      <FaFileImage className="text-5xl mx-auto mb-4 text-violet-300" />
+                      <p className="text-xl mb-2 text-violet-700">No images uploaded yet</p>
+                      <button
+                        onClick={() => setIsUploadingDoc(true)}
+                        className="mt-4 inline-block bg-gradient-to-r from-violet-500 to-blue-500 text-white px-6 py-3 rounded-xl font-medium hover:from-violet-600 hover:to-blue-600 transform hover:scale-105 transition-all duration-300 shadow-md flex items-center gap-2 mx-auto"
+                      >
+                        <FaPlusCircle /> Upload Your First Image
+                      </button>
+                    </div>
+                  )}
+                  
+                  {imageDocuments && imageDocuments.length > 0 && (
+                    <div className="mt-4 text-center">
+                      <button
+                        onClick={() => setShowImagesGallery(true)}
+                        className="text-violet-600 hover:text-violet-800 font-medium flex items-center gap-1.5 mx-auto"
+                      >
+                        <FaEye size={16} /> View All Images in Gallery
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
 
              
 
