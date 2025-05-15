@@ -5,6 +5,7 @@ import { FaPaw, FaHome, FaSearch, FaPlusCircle, FaUsers, FaUserPlus, FaComment }
 import { useNavigate } from "react-router-dom";
 import { NotificationBadge } from "./NotificationBadge";
 import { ChatBadge } from "./ChatBadge";
+import type { CSSProperties } from 'react';
 
 const Navbar = () => {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -44,11 +45,6 @@ const Navbar = () => {
 
     const authenticatedItems = [
       {
-        path: "/chat",
-        label: "Messages",
-        icon: <FaComment className="text-xl" />,
-      },
-      {
         path: "/create",
         label: "Create Post",
         icon: <FaPlusCircle className="text-xl" />,
@@ -68,13 +64,22 @@ const Navbar = () => {
     return user ? [...baseItems, ...authenticatedItems] : baseItems;
   };
 
+  // Helper: get dropdown style for right alignment
+  const getDropdownStyle = (): CSSProperties => ({
+    right: 0,
+    position: 'fixed',
+    top: '4.5rem', // adjust as needed for navbar height
+    marginRight: '2rem', // adjust to match navbar padding
+    zIndex: 1000,
+  });
+
   return (
     <nav className={`fixed top-0 w-full z-40 transition-all duration-300 ${
       scrolled 
         ? "bg-white/90 backdrop-blur-lg shadow-md" 
         : "bg-white/80 backdrop-blur-md"
     }`}>
-      <div className="max-w-7xl mx-auto px-4">
+      <div className="w-full px-2 sm:px-4 md:px-8">
         <div className="flex justify-between items-center h-16">
           <NavLink 
             to="/" 
@@ -118,10 +123,11 @@ const Navbar = () => {
                 {/* Chat */}
                 <ChatBadge />
 
-                {user.user_metadata?.avatar_url && (
-                  <NavLink 
-                    to="/profile"
-                    className="relative group"
+                {/* Avatar Dropdown */}
+                <div className="relative">
+                  <button
+                    onClick={() => setMenuOpen((open) => !open)}
+                    className="focus:outline-none group"
                   >
                     <div className="absolute -inset-0.5 bg-gradient-to-r from-violet-500 to-blue-500 rounded-full opacity-75 group-hover:opacity-100 transition duration-200 blur"></div>
                     <img
@@ -129,18 +135,36 @@ const Navbar = () => {
                       alt="User Avatar"
                       className="relative w-10 h-10 rounded-full object-cover transform transition duration-200 group-hover:scale-105 border-2 border-white"
                     />
-                  </NavLink>
-                )}
+                  </button>
+                  {menuOpen && (
+                    <div
+                      className="w-40 bg-white border border-violet-100 rounded-xl shadow-lg py-2"
+                      style={getDropdownStyle()}
+                      tabIndex={-1}
+                    >
+                      <button
+                        className="w-full text-left px-4 py-2 hover:bg-violet-50 text-violet-700 font-['Poppins'] rounded-t-xl"
+                        onClick={() => {
+                          setMenuOpen(false);
+                          navigate("/profile");
+                        }}
+                      >
+                        Profile
+                      </button>
+                      <button
+                        className="w-full text-left px-4 py-2 hover:bg-violet-50 text-red-600 font-['Poppins'] rounded-b-xl"
+                        onClick={() => {
+                          setMenuOpen(false);
+                          signOut();
+                          navigate("/");
+                        }}
+                      >
+                        Sign Out
+                      </button>
+                    </div>
+                  )}
+                </div>
                 <span className="text-violet-800 font-medium font-['Poppins']">{user.user_metadata.full_name || user.email}</span>
-                <button
-                  onClick={() => {
-                    signOut();
-                    navigate("/");
-                  }}
-                  className="bg-white border border-violet-200 text-violet-700 hover:bg-violet-50 px-4 py-2 rounded-xl font-medium transform hover:scale-105 transition-all duration-200 shadow-sm hover:shadow-md font-['Poppins']"
-                >
-                  Sign Out
-                </button>
               </div>
             ) : (
               <button

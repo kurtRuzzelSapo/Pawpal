@@ -50,21 +50,18 @@ const Home = () => {
         ))}
       </div>
       
-      <div className={`relative z-10 max-w-6xl mx-auto transition-all duration-1000 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-        <div className="text-center mb-10 reveal">
-          <span className="bg-violet-100 text-violet-800 px-4 py-1 rounded-full text-sm font-medium font-['Poppins'] mb-4 inline-block">Home Feed</span>
-          <h2 className="text-4xl md:text-5xl font-bold text-violet-800 font-['Quicksand']">
-        Recent Posts
-      </h2>
-          <div className="w-24 h-1 bg-gradient-to-r from-violet-500 to-blue-500 mx-auto mt-6"></div>
-          <p className="text-gray-600 mt-4 max-w-xl mx-auto font-['Poppins']">
-            Stay updated with the latest posts from our community of pet lovers
-          </p>
-        </div>
-        
-        <div className="bg-white/80 backdrop-blur-md rounded-3xl shadow-md p-6 reveal">
+      <div className={`text-center mb-10 reveal transition-all duration-1000 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+        <span className="bg-violet-100 text-violet-800 px-4 py-1 rounded-full text-sm font-medium font-['Poppins'] mb-4 inline-block">Home Feed</span>
+        <h2 className="text-4xl md:text-5xl font-bold text-violet-800 font-['Quicksand']">
+          Recent Posts
+        </h2>
+        <div className="w-24 h-1 bg-gradient-to-r from-violet-500 to-blue-500 mx-auto mt-6"></div>
+        <p className="text-gray-600 mt-4 max-w-xl mx-auto font-['Poppins']">
+          Stay updated with the latest posts from our community of pet lovers
+        </p>
+      </div>
+      <div className="bg-white/80 backdrop-blur-md rounded-3xl shadow-md p-6 reveal w-full">
         <PostList />
-        </div>
       </div>
     </div>
   );

@@ -198,7 +198,7 @@ export const PostList = () => {
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
+    <div className="w-full grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
       {posts.length === 0 && !loading ? (
         <div className="text-center text-violet-600 py-10 col-span-full font-['Poppins']">
           <FaPaw className="text-5xl mx-auto mb-4 text-violet-300" />
