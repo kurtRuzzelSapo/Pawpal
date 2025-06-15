@@ -1,10 +1,18 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '../supabase-client';
-import { useAuth } from '../context/AuthContext';
-import { FaBell, FaUser, FaPaw, FaEye, FaTrash, FaCheckSquare, FaRegSquare } from 'react-icons/fa';
-import { useNavigate } from 'react-router-dom';
-import { toast } from 'react-hot-toast';
-import { AdoptionRequestDetails } from './AdoptionRequestDetails';
+import { useState, useEffect } from "react";
+import { supabase } from "../supabase-client";
+import { useAuth } from "../context/AuthContext";
+import {
+  FaBell,
+  FaUser,
+  FaPaw,
+  FaEye,
+  FaTrash,
+  FaCheckSquare,
+  FaRegSquare,
+} from "react-icons/fa";
+import { useNavigate } from "react-router-dom";
+import { toast } from "react-hot-toast";
+import { AdoptionRequestDetails } from "./AdoptionRequestDetails";
 
 export const NotificationBadge: React.FC = () => {
   const { user } = useAuth();
@@ -13,9 +21,13 @@ export const NotificationBadge: React.FC = () => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [enhancedNotifications, setEnhancedNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selectedRequestId, setSelectedRequestId] = useState<number | null>(null);
+  const [selectedRequestId, setSelectedRequestId] = useState<number | null>(
+    null
+  );
   const [showRequestModal, setShowRequestModal] = useState(false);
-  const [selectedNotifications, setSelectedNotifications] = useState<number[]>([]);
+  const [selectedNotifications, setSelectedNotifications] = useState<number[]>(
+    []
+  );
   const [selectMode, setSelectMode] = useState(false);
   const navigate = useNavigate();
 
@@ -27,83 +39,88 @@ export const NotificationBadge: React.FC = () => {
       setLoading(true);
       try {
         const { data, error } = await supabase
-          .from('notifications')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false });
+          .from("notifications")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false });
 
         if (error) {
-          console.error('Error fetching notifications:', error);
+          console.error("Error fetching notifications:", error);
           return;
         }
 
         if (data) {
           setNotifications(data);
           // Count unread ones
-          const unread = data.filter(n => !n.read).length;
+          const unread = data.filter((n) => !n.read).length;
           setUnreadCount(unread);
-          
+
           // Enhance notifications with additional data
           const enhanced = await Promise.all(
             data.map(async (notification) => {
               let enhancedNotification = { ...notification };
 
               // Get adoption request details if this is a request notification
-              if (notification.type === 'adoption_request' && notification.requester_id) {
+              if (
+                notification.type === "adoption_request" &&
+                notification.requester_id
+              ) {
                 try {
                   // Get request details if available
                   if (notification.post_id) {
                     const { data: requestData } = await supabase
-                      .from('adoption_requests')
-                      .select('id, status, created_at')
-                      .eq('post_id', notification.post_id)
-                      .eq('requester_id', notification.requester_id)
-                      .order('created_at', { ascending: false })
+                      .from("adoption_requests")
+                      .select("id, status, created_at")
+                      .eq("post_id", notification.post_id)
+                      .eq("requester_id", notification.requester_id)
+                      .order("created_at", { ascending: false })
                       .maybeSingle();
-                      
+
                     if (requestData) {
                       enhancedNotification.requestId = requestData.id;
                       enhancedNotification.requestStatus = requestData.status;
                       enhancedNotification.requestDate = requestData.created_at;
                     }
                   }
-                  
+
                   // Get pet name if available
                   if (notification.post_id) {
                     const { data: postData } = await supabase
-                      .from('post')
-                      .select('name, image_url, breed, age')
-                      .eq('id', notification.post_id)
+                      .from("post")
+                      .select("name, image_url, breed, age")
+                      .eq("id", notification.post_id)
                       .maybeSingle();
-                      
+
                     if (postData) {
-                      enhancedNotification.petName = postData.name || 'a pet';
+                      enhancedNotification.petName = postData.name || "a pet";
                       enhancedNotification.petImage = postData.image_url;
                       enhancedNotification.petBreed = postData.breed;
                       enhancedNotification.petAge = postData.age;
                     }
                   }
-                  
+
                   // Try to get requester name
                   if (notification.requester_id) {
-                    const requesterName = await getRequesterNameForNotification(notification.requester_id);
+                    const requesterName = await getRequesterNameForNotification(
+                      notification.requester_id
+                    );
                     if (requesterName) {
                       enhancedNotification.requesterName = requesterName;
                     }
                   }
                 } catch (err) {
-                  console.error('Error enhancing notification:', err);
+                  console.error("Error enhancing notification:", err);
                 }
               }
-              
+
               return enhancedNotification;
             })
           );
-          
+
           setEnhancedNotifications(enhanced);
         }
       } catch (err) {
-        console.error('Error in notification processing:', err);
+        console.error("Error in notification processing:", err);
       } finally {
         setLoading(false);
       }
@@ -113,14 +130,14 @@ export const NotificationBadge: React.FC = () => {
 
     // Set up real-time subscription for new notifications
     const subscription = supabase
-      .channel('notifications_changes')
+      .channel("notifications_changes")
       .on(
-        'postgres_changes',
+        "postgres_changes",
         {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user.id}`
+          event: "INSERT",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${user.id}`,
         },
         () => {
           fetchNotifications();
@@ -135,32 +152,32 @@ export const NotificationBadge: React.FC = () => {
 
   const refreshNotifications = async () => {
     if (!user) return;
-    
+
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+        .from("notifications")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
 
       if (error) {
-        console.error('Error refreshing notifications:', error);
+        console.error("Error refreshing notifications:", error);
         return;
       }
 
       if (data) {
         setNotifications(data);
         // Count unread ones
-        const unread = data.filter(n => !n.read).length;
+        const unread = data.filter((n) => !n.read).length;
         setUnreadCount(unread);
-        
+
         // Reset selection when refreshing
         setSelectedNotifications([]);
         setSelectMode(false);
       }
     } catch (err) {
-      console.error('Error refreshing notifications:', err);
+      console.error("Error refreshing notifications:", err);
     } finally {
       setLoading(false);
     }
@@ -169,71 +186,74 @@ export const NotificationBadge: React.FC = () => {
   // Function to get requester name - with error handling for missing profiles table
   const getRequesterNameForNotification = async (userId: string) => {
     if (!userId) return null;
-    
+
     try {
       // First try to get from profiles table
       const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('id', userId)
+        .from("profiles")
+        .select("full_name")
+        .eq("id", userId)
         .maybeSingle();
-        
+
       // If profiles table doesn't exist or other error, try auth.users directly
-      if (error && error.code === '42P01') { // Relation doesn't exist
+      if (error && error.code === "42P01") {
+        // Relation doesn't exist
         try {
           // Fallback to auth.users if available
-          const { data: userData, error: authError } = await supabase
-            .rpc('get_user_name', { user_id: userId });
-            
+          const { data: userData, error: authError } = await supabase.rpc(
+            "get_user_name",
+            { user_id: userId }
+          );
+
           if (!authError && userData) {
             return userData;
           }
         } catch (e) {
-          console.error('Error in fallback user data fetch:', e);
+          console.error("Error in fallback user data fetch:", e);
         }
-        return 'Someone'; // Generic fallback
+        return "Someone"; // Generic fallback
       }
-      
+
       if (profile && profile.full_name) {
         return profile.full_name;
       }
-      
-      return 'Someone'; // Generic fallback
+
+      return "Someone"; // Generic fallback
     } catch (error) {
-      console.error('Error fetching requester profile:', error);
-      return 'Someone'; // Generic fallback
+      console.error("Error fetching requester profile:", error);
+      return "Someone"; // Generic fallback
     }
   };
 
   const markAsRead = async (notificationId: number) => {
     const { error } = await supabase
-      .from('notifications')
+      .from("notifications")
       .update({ read: true })
-      .eq('id', notificationId);
+      .eq("id", notificationId);
 
     if (error) {
-      console.error('Error marking notification as read:', error);
+      console.error("Error marking notification as read:", error);
       return;
     }
 
     // Update local state
-    setNotifications(prevNotifications => 
-      prevNotifications.map(notification => 
-        notification.id === notificationId 
-          ? { ...notification, read: true } 
+    setNotifications((prevNotifications) =>
+      prevNotifications.map((notification) =>
+        notification.id === notificationId
+          ? { ...notification, read: true }
           : notification
       )
     );
-    
-    setEnhancedNotifications(prevNotifications => 
-      prevNotifications.map(notification => 
-        notification.id === notificationId 
-          ? { ...notification, read: true } 
+
+    setEnhancedNotifications((prevNotifications) =>
+      prevNotifications.map((notification) =>
+        notification.id === notificationId
+          ? { ...notification, read: true }
           : notification
       )
     );
-    
-    setUnreadCount(prev => Math.max(0, prev - 1));
+
+    setUnreadCount((prev) => Math.max(0, prev - 1));
   };
 
   const handleNotificationContentClick = async (notification: any) => {
@@ -242,67 +262,48 @@ export const NotificationBadge: React.FC = () => {
       toggleNotificationSelection(notification.id);
       return;
     }
-    
+
     // Mark as read
     if (!notification.read) {
       markAsRead(notification.id);
     }
-    
+
     try {
       // If it's an adoption request notification with requestId, open the modal
-      if (notification.type === 'adoption_request' && notification.requestId) {
+      if (notification.type === "adoption_request" && notification.requestId) {
         viewAdoptionRequest(notification.requestId);
         return;
       }
-      
-      // Otherwise handle navigation based on notification type
-      if (notification.type && notification.type.startsWith('adoption_')) {
-        if (notification.type === 'adoption_request' && notification.post_id) {
-          // For adoption requests, verify the post exists first
-          const { data: postData, error: postError } = await supabase
-            .from('post')
-            .select('id')
-            .eq('id', notification.post_id)
-            .maybeSingle();
-            
-          if (postError || !postData) {
-            toast.error('The requested post is no longer available');
-            navigate('/home');
-            setShowDropdown(false);
-            return;
-          }
-          
-          // For owners receiving adoption requests, go to the post details with requests tab active
-          navigate(`/post/${notification.post_id}?tab=requests`);
-        } else if (notification.post_id) {
-          // For requesters receiving approval/rejection, check post exists
-          const { data: postData, error: postError } = await supabase
-            .from('post')
-            .select('id')
-            .eq('id', notification.post_id)
-            .maybeSingle();
-            
-          if (postError || !postData) {
-            toast.error('The requested post is no longer available');
-            navigate('/home');
-            setShowDropdown(false);
-            return;
-          }
-          
-          // Post exists, navigate to it
-          navigate(`/post/${notification.post_id}`);
+
+      // For all notifications with post_id, navigate to the post detail page
+      if (notification.post_id) {
+        // Verify the post exists first
+        const { data: postData, error: postError } = await supabase
+          .from("post")
+          .select("id")
+          .eq("id", notification.post_id)
+          .maybeSingle();
+
+        if (postError || !postData) {
+          toast.error("The requested post is no longer available");
+          navigate("/home");
+          setShowDropdown(false);
+          return;
         }
+
+        // Navigate to post detail page
+        navigate(`/post/${notification.post_id}`);
       } else if (notification.link) {
         // Use the provided link if available
         navigate(notification.link);
       }
     } catch (error) {
-      console.error('Error navigating from notification:', error);
-      toast.error('Could not open the notification details');
+      console.error("Error navigating from notification:", error);
+      toast.error("Could not open the notification details");
       // As fallback, just go to home
-      navigate('/home');
+      navigate("/home");
     }
-    
+
     setShowDropdown(false);
   };
 
@@ -318,10 +319,14 @@ export const NotificationBadge: React.FC = () => {
     refreshNotifications();
   };
 
-  const handleQuickAction = async (e: React.MouseEvent, notification: any, action: 'view' | 'approve' | 'deny') => {
+  const handleQuickAction = async (
+    e: React.MouseEvent,
+    notification: any,
+    action: "view" | "approve" | "deny"
+  ) => {
     e.stopPropagation(); // Prevent parent click events
-    
-    if (action === 'view' && notification.requestId) {
+
+    if (action === "view" && notification.requestId) {
       viewAdoptionRequest(notification.requestId);
     } else {
       // For approve/deny actions, open the full details modal
@@ -337,49 +342,65 @@ export const NotificationBadge: React.FC = () => {
     if (notifications.length === 0) return;
 
     const { error } = await supabase
-      .from('notifications')
+      .from("notifications")
       .update({ read: true })
-      .eq('user_id', user?.id)
-      .eq('read', false);
+      .eq("user_id", user?.id)
+      .eq("read", false);
 
     if (error) {
-      console.error('Error marking all notifications as read:', error);
+      console.error("Error marking all notifications as read:", error);
       return;
     }
 
-    setNotifications(prevNotifications => 
-      prevNotifications.map(notification => ({ ...notification, read: true }))
+    setNotifications((prevNotifications) =>
+      prevNotifications.map((notification) => ({ ...notification, read: true }))
     );
-    
-    setEnhancedNotifications(prevNotifications => 
-      prevNotifications.map(notification => ({ ...notification, read: true }))
+
+    setEnhancedNotifications((prevNotifications) =>
+      prevNotifications.map((notification) => ({ ...notification, read: true }))
     );
-    
+
     setUnreadCount(0);
   };
 
   // Format notification message with enhanced data
   const formatNotificationMessage = (notification: any) => {
-    if (notification.type === 'adoption_request') {
-      const requesterName = notification.requesterName || 'Someone';
-      const petName = notification.petName || 'your pet';
+    if (notification.type === "adoption_request") {
+      const requesterName = notification.requesterName || "Someone";
+      const petName = notification.petName || "your pet";
       return `${requesterName} has requested to adopt ${petName}`;
     }
-    
+
     return notification.message;
   };
 
   // Get status badge for adoption requests
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'pending':
-        return <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-xs">Pending</span>;
-      case 'approved':
-        return <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs">Approved</span>;
-      case 'rejected':
-        return <span className="bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs">Rejected</span>;
+      case "pending":
+        return (
+          <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-xs">
+            Pending
+          </span>
+        );
+      case "approved":
+        return (
+          <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs">
+            Approved
+          </span>
+        );
+      case "rejected":
+        return (
+          <span className="bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs">
+            Rejected
+          </span>
+        );
       default:
-        return <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded-full text-xs">{status}</span>;
+        return (
+          <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded-full text-xs">
+            {status}
+          </span>
+        );
     }
   };
 
@@ -394,9 +415,9 @@ export const NotificationBadge: React.FC = () => {
 
   // Toggle selection of a notification
   const toggleNotificationSelection = (notificationId: number) => {
-    setSelectedNotifications(prev => {
+    setSelectedNotifications((prev) => {
       if (prev.includes(notificationId)) {
-        return prev.filter(id => id !== notificationId);
+        return prev.filter((id) => id !== notificationId);
       } else {
         return [...prev, notificationId];
       }
@@ -410,7 +431,7 @@ export const NotificationBadge: React.FC = () => {
       setSelectedNotifications([]);
     } else {
       // Select all
-      setSelectedNotifications(enhancedNotifications.map(n => n.id));
+      setSelectedNotifications(enhancedNotifications.map((n) => n.id));
     }
   };
 
@@ -421,23 +442,23 @@ export const NotificationBadge: React.FC = () => {
     setLoading(true);
     try {
       const { error } = await supabase
-        .from('notifications')
+        .from("notifications")
         .delete()
-        .in('id', selectedNotifications);
+        .in("id", selectedNotifications);
 
       if (error) {
-        console.error('Error deleting notifications:', error);
-        toast.error('Failed to delete notifications');
+        console.error("Error deleting notifications:", error);
+        toast.error("Failed to delete notifications");
         return;
       }
 
       toast.success(`Deleted ${selectedNotifications.length} notification(s)`);
-      
+
       // Refresh notifications
       refreshNotifications();
     } catch (err) {
-      console.error('Error deleting notifications:', err);
-      toast.error('Failed to delete notifications');
+      console.error("Error deleting notifications:", err);
+      toast.error("Failed to delete notifications");
     } finally {
       setLoading(false);
       setSelectMode(false);
@@ -448,7 +469,7 @@ export const NotificationBadge: React.FC = () => {
 
   return (
     <div className="relative">
-      <button 
+      <button
         className="relative p-2 rounded-full hover:bg-violet-100 transition-colors"
         onClick={() => setShowDropdown(!showDropdown)}
       >
@@ -468,14 +489,14 @@ export const NotificationBadge: React.FC = () => {
               {!selectMode ? (
                 <>
                   {unreadCount > 0 && (
-                    <button 
+                    <button
                       onClick={markAllAsRead}
                       className="text-xs bg-white text-violet-800 px-2 py-1 rounded font-['Poppins']"
                     >
                       Mark all read
                     </button>
                   )}
-                  <button 
+                  <button
                     onClick={toggleSelectMode}
                     className="text-xs bg-white text-violet-800 px-2 py-1 rounded font-['Poppins']"
                     title="Select and delete notifications"
@@ -485,11 +506,12 @@ export const NotificationBadge: React.FC = () => {
                 </>
               ) : (
                 <>
-                  <button 
+                  <button
                     onClick={toggleSelectAll}
                     className="text-xs bg-white text-violet-800 px-2 py-1 rounded font-['Poppins'] flex items-center gap-1"
                   >
-                    {selectedNotifications.length === enhancedNotifications.length ? (
+                    {selectedNotifications.length ===
+                    enhancedNotifications.length ? (
                       <>
                         <FaCheckSquare className="text-violet-600" />
                         Deselect All
@@ -502,7 +524,7 @@ export const NotificationBadge: React.FC = () => {
                     )}
                   </button>
                   {selectedNotifications.length > 0 && (
-                    <button 
+                    <button
                       onClick={deleteSelectedNotifications}
                       className="text-xs bg-red-500 text-white px-2 py-1 rounded font-['Poppins'] flex items-center gap-1"
                     >
@@ -510,7 +532,7 @@ export const NotificationBadge: React.FC = () => {
                       Delete ({selectedNotifications.length})
                     </button>
                   )}
-                  <button 
+                  <button
                     onClick={toggleSelectMode}
                     className="text-xs bg-gray-200 text-gray-800 px-2 py-1 rounded font-['Poppins']"
                   >
@@ -520,95 +542,123 @@ export const NotificationBadge: React.FC = () => {
               )}
             </div>
           </div>
-          
+
           <div className="max-h-[70vh] overflow-y-auto">
             {loading ? (
               <div className="p-4 text-center">
                 <div className="animate-spin rounded-full h-6 w-6 border-t-2  border-r-2 border-violet-300 mx-auto"></div>
-                <p className="text-sm text-gray-500 mt-2">Loading notifications...</p>
+                <p className="text-sm text-gray-500 mt-2">
+                  Loading notifications...
+                </p>
               </div>
             ) : enhancedNotifications.length > 0 ? (
-              enhancedNotifications.map(notification => (
-                <div 
+              enhancedNotifications.map((notification) => (
+                <div
                   key={notification.id}
-                  className={`p-3 border-b border-gray-100 ${selectMode ? 'cursor-pointer' : ''} hover:bg-violet-50 transition-colors ${!notification.read ? 'bg-violet-50' : ''} ${selectedNotifications.includes(notification.id) ? 'bg-violet-100' : ''}`}
-                  onClick={() => selectMode && toggleNotificationSelection(notification.id)}
+                  className={`p-3 border-b border-gray-100 ${
+                    selectMode ? "cursor-pointer" : ""
+                  } hover:bg-violet-50 transition-colors ${
+                    !notification.read ? "bg-violet-50" : ""
+                  } ${
+                    selectedNotifications.includes(notification.id)
+                      ? "bg-violet-100"
+                      : ""
+                  }`}
+                  onClick={() =>
+                    selectMode && toggleNotificationSelection(notification.id)
+                  }
                 >
                   <div className="flex items-start gap-3">
                     {selectMode && (
                       <div className="mt-2">
-                        {selectedNotifications.includes(notification.id) ? 
-                          <FaCheckSquare className="text-violet-600 text-lg" /> : 
+                        {selectedNotifications.includes(notification.id) ? (
+                          <FaCheckSquare className="text-violet-600 text-lg" />
+                        ) : (
                           <FaRegSquare className="text-violet-300 text-lg" />
-                        }
+                        )}
                       </div>
                     )}
-                    
-                    {notification.type === 'adoption_request' && notification.petImage ? (
+
+                    {notification.type === "adoption_request" &&
+                    notification.petImage ? (
                       <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 border-2 border-violet-200">
-                        <img 
-                          src={notification.petImage} 
-                          alt="Pet" 
+                        <img
+                          src={notification.petImage}
+                          alt="Pet"
                           className="w-full h-full object-cover"
                         />
                       </div>
                     ) : (
                       <div className="w-16 h-16 rounded-lg bg-violet-100 flex items-center justify-center flex-shrink-0">
-                        {notification.type === 'adoption_request' ? (
+                        {notification.type === "adoption_request" ? (
                           <FaPaw className="text-2xl text-violet-600" />
                         ) : (
                           <FaUser className="text-2xl text-violet-600" />
                         )}
                       </div>
                     )}
-                    
-                    <div 
+
+                    <div
                       className="flex-1 cursor-pointer"
                       onClick={(e) => {
                         e.stopPropagation();
-                        !selectMode && handleNotificationContentClick(notification);
+                        !selectMode &&
+                          handleNotificationContentClick(notification);
                       }}
                     >
                       <div className="flex justify-between">
                         <p className="text-sm font-medium text-violet-800 font-['Poppins'] capitalize">
-                          {notification.type.replace(/_/g, ' ')}
+                          {notification.type.replace(/_/g, " ")}
                         </p>
                         <span className="text-xs text-gray-500">
-                          {new Date(notification.created_at).toLocaleDateString()}
+                          {new Date(
+                            notification.created_at
+                          ).toLocaleDateString()}
                         </span>
                       </div>
                       <p className="text-sm text-gray-600 mt-1 font-['Poppins']">
                         {formatNotificationMessage(notification)}
                       </p>
-                      
-                      {notification.type === 'adoption_request' && notification.petName && (
-                        <div className="mt-1 text-xs text-gray-600">
-                          <div className="flex items-center mt-1 gap-2">
-                            <div className="text-violet-700 font-medium">Pet details:</div>
-                            {notification.petBreed && <div>{notification.petBreed}</div>}
-                            {notification.petAge && <div>• {notification.petAge}</div>}
-                          </div>
-                          
-                          {notification.requestStatus && (
-                            <div className="mt-2">
-                              {getStatusBadge(notification.requestStatus)}
+
+                      {notification.type === "adoption_request" &&
+                        notification.petName && (
+                          <div className="mt-1 text-xs text-gray-600">
+                            <div className="flex items-center mt-1 gap-2">
+                              <div className="text-violet-700 font-medium">
+                                Pet details:
+                              </div>
+                              {notification.petBreed && (
+                                <div>{notification.petBreed}</div>
+                              )}
+                              {notification.petAge && (
+                                <div>• {notification.petAge}</div>
+                              )}
                             </div>
-                          )}
-                        </div>
-                      )}
-                      
+
+                            {notification.requestStatus && (
+                              <div className="mt-2">
+                                {getStatusBadge(notification.requestStatus)}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
                       {/* Action buttons for adoption requests - visible only when not in select mode */}
-                      {!selectMode && notification.type === 'adoption_request' && notification.requestId && (
-                        <div className="mt-3 flex gap-2 justify-end">
-                          <button
-                            onClick={(e) => handleQuickAction(e, notification, 'view')}
-                            className="px-2 py-1 bg-violet-100 text-violet-700 rounded-lg text-xs flex items-center gap-1 hover:bg-violet-200 transition-colors"
-                          >
-                            <FaEye className="text-xs" />
-                            View Details
-                          </button>
-                        </div>
-                      )}
+                      {!selectMode &&
+                        notification.type === "adoption_request" &&
+                        notification.requestId && (
+                          <div className="mt-3 flex gap-2 justify-end">
+                            <button
+                              onClick={(e) =>
+                                handleQuickAction(e, notification, "view")
+                              }
+                              className="px-2 py-1 bg-violet-100 text-violet-700 rounded-lg text-xs flex items-center gap-1 hover:bg-violet-200 transition-colors"
+                            >
+                              <FaEye className="text-xs" />
+                              View Details
+                            </button>
+                          </div>
+                        )}
                     </div>
                   </div>
                 </div>
@@ -621,7 +671,7 @@ export const NotificationBadge: React.FC = () => {
           </div>
         </div>
       )}
-      
+
       {/* Adoption Request Modal */}
       {showRequestModal && selectedRequestId && (
         <AdoptionRequestDetails
@@ -632,4 +682,4 @@ export const NotificationBadge: React.FC = () => {
       )}
     </div>
   );
-}; 
+};

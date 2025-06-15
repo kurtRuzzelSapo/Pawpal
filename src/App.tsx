@@ -71,6 +71,8 @@ function App() {
         <Route path="/about" element={<AboutPage />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="verify-email" element={<VerifyEmailPage />} />
+          <Route path="chat" element={<ChatPage />} />
+          <Route path="chat/:conversationId" element={<ChatPage />} />
 
         <Route
           path="*"
@@ -89,8 +91,6 @@ function App() {
                   <Route path="community/create" element={<CreateCommunityPage />} />
                   <Route path="communities" element={<CommunitiesPage />} />
                   <Route path="community/:id" element={<CommunityPage />} />
-                  <Route path="chat" element={<ChatPage />} />
-                  <Route path="chat/:conversationId" element={<ChatPage />} />
                 </Routes>
               </div>
             </div>
