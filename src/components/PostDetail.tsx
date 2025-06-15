@@ -2,7 +2,19 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../supabase-client";
 import { Post } from "./PostList";
-import { FaPaw, FaMapMarkerAlt, FaSyringe, FaRuler, FaArrowLeft, FaTrash, FaCalendarAlt, FaHeartbeat, FaClock, FaHandHoldingHeart, FaEnvelope } from "react-icons/fa";
+import {
+  FaPaw,
+  FaMapMarkerAlt,
+  FaSyringe,
+  FaRuler,
+  FaArrowLeft,
+  FaTrash,
+  FaCalendarAlt,
+  FaHeartbeat,
+  FaClock,
+  FaHandHoldingHeart,
+  FaEnvelope,
+} from "react-icons/fa";
 import { MdPets } from "react-icons/md";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -41,26 +53,28 @@ const deletePost = async (post: Post) => {
 
     // Delete the main image
     if (post.image_url) {
-      const mainImagePath = post.image_url.split('/').pop();
+      const mainImagePath = post.image_url.split("/").pop();
       if (mainImagePath) {
-        await supabase.storage
-          .from("post-images")
-          .remove([mainImagePath]);
+        await supabase.storage.from("post-images").remove([mainImagePath]);
       }
     }
 
     // Delete additional photos
     if (post.additional_photos) {
-      const additionalImagePaths = post.additional_photos.map(url => url.split('/').pop());
+      const additionalImagePaths = post.additional_photos.map((url) =>
+        url.split("/").pop()
+      );
       await supabase.storage
         .from("post-images")
         .remove(additionalImagePaths.filter(Boolean) as string[]);
     }
 
     // Delete vaccination proof if it exists in health_info
-    const vaccinationProofMatch = post.health_info?.match(/Vaccination Proof: (https:\/\/[^\s]+)/);
+    const vaccinationProofMatch = post.health_info?.match(
+      /Vaccination Proof: (https:\/\/[^\s]+)/
+    );
     if (vaccinationProofMatch) {
-      const vaccinationProofPath = vaccinationProofMatch[1].split('/').pop();
+      const vaccinationProofPath = vaccinationProofMatch[1].split("/").pop();
       if (vaccinationProofPath) {
         await supabase.storage
           .from("post-images")
@@ -83,8 +97,8 @@ const deletePost = async (post: Post) => {
 
 // Add adoption request function
 const sendAdoptionRequest = async (
-  postId: number, 
-  requesterId: string, 
+  postId: number,
+  requesterId: string,
   ownerId: string,
   petName: string
 ) => {
@@ -106,17 +120,15 @@ const sendAdoptionRequest = async (
     }
 
     // If no existing request, create a new one
-    const { data, error } = await supabase
-      .from("adoption_requests")
-      .insert([
-        {
-          post_id: postId,
-          requester_id: requesterId,
-          owner_id: ownerId,
-          status: "pending",
-          created_at: new Date().toISOString()
-        }
-      ]);
+    const { data, error } = await supabase.from("adoption_requests").insert([
+      {
+        post_id: postId,
+        requester_id: requesterId,
+        owner_id: ownerId,
+        status: "pending",
+        created_at: new Date().toISOString(),
+      },
+    ]);
 
     if (error) {
       console.error("Error creating adoption request:", error);
@@ -133,8 +145,8 @@ const sendAdoptionRequest = async (
           message: `New adoption request for ${petName}`,
           created_at: new Date().toISOString(),
           read: false,
-          link: `/post/${postId}`
-        }
+          link: `/post/${postId}`,
+        },
       ]);
 
     if (notificationError) {
@@ -151,10 +163,7 @@ const sendAdoptionRequest = async (
 };
 
 // Add function to cancel adoption request
-const cancelAdoptionRequest = async (
-  postId: number,
-  requesterId: string
-) => {
+const cancelAdoptionRequest = async (postId: number, requesterId: string) => {
   try {
     // Find the request to delete
     const { data: existingRequests, error: findError } = await supabase
@@ -194,12 +203,15 @@ const cancelAdoptionRequest = async (
           message: `An adoption request for your pet has been cancelled`,
           created_at: new Date().toISOString(),
           read: false,
-          link: `/post/${postId}`
-        }
+          link: `/post/${postId}`,
+        },
       ]);
 
     if (notificationError) {
-      console.error("Error creating cancellation notification:", notificationError);
+      console.error(
+        "Error creating cancellation notification:",
+        notificationError
+      );
       // Don't throw here, we still want to consider the cancellation as successful
     }
 
@@ -219,7 +231,7 @@ export const PostDetail = ({ postId }: { postId: string }) => {
   const [hasRequested, setHasRequested] = useState(false);
   const [requestStatus, setRequestStatus] = useState<string | null>(null);
   const [loadingAttempts, setLoadingAttempts] = useState(0);
-  
+
   // Create refs for sections we want to scroll to
   const adoptionRequestsRef = useRef<HTMLDivElement>(null);
 
@@ -228,16 +240,20 @@ export const PostDetail = ({ postId }: { postId: string }) => {
 
   useEffect(() => {
     console.log(`PostDetail mounted with ID: ${postId}`);
-    
+
     // Force refetch data on initial load and when postId changes
-    queryClient.invalidateQueries({ queryKey: ['post', numericPostId] });
-    
+    queryClient.invalidateQueries({ queryKey: ["post", numericPostId] });
+
     // Add a mandatory delay before showing content to ensure data is fetched
     const timer = setTimeout(() => {
-      setLoadingAttempts(prev => prev + 1);
-      console.log(`Increased loading attempts to ${loadingAttempts + 1} for post ${postId}`);
+      setLoadingAttempts((prev) => prev + 1);
+      console.log(
+        `Increased loading attempts to ${
+          loadingAttempts + 1
+        } for post ${postId}`
+      );
     }, 200);
-    
+
     return () => {
       clearTimeout(timer);
       console.log(`PostDetail unmounted for ID: ${postId}`);
@@ -273,8 +289,13 @@ export const PostDetail = ({ postId }: { postId: string }) => {
     }
   };
 
-  const { data: post, isLoading, isError, error } = useQuery<Post, Error>({
-    queryKey: ['post', numericPostId],
+  const {
+    data: post,
+    isLoading,
+    isError,
+    error,
+  } = useQuery<Post, Error>({
+    queryKey: ["post", numericPostId],
     queryFn: () => fetchPostById(numericPostId),
     retry: 3,
     retryDelay: 1000,
@@ -285,12 +306,12 @@ export const PostDetail = ({ postId }: { postId: string }) => {
   // Add effect to handle tab query parameter
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    const tab = params.get('tab');
-    
-    if (tab === 'requests' && adoptionRequestsRef.current) {
+    const tab = params.get("tab");
+
+    if (tab === "requests" && adoptionRequestsRef.current) {
       // Scroll to adoption requests section with a slight delay to ensure content is loaded
       setTimeout(() => {
-        adoptionRequestsRef.current?.scrollIntoView({ behavior: 'smooth' });
+        adoptionRequestsRef.current?.scrollIntoView({ behavior: "smooth" });
       }, 500);
     }
   }, [location.search, post]);
@@ -301,7 +322,9 @@ export const PostDetail = ({ postId }: { postId: string }) => {
       return;
     }
 
-    const confirmed = window.confirm("Are you sure you want to delete this post? This action cannot be undone.");
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this post? This action cannot be undone."
+    );
     if (!confirmed) return;
 
     try {
@@ -320,7 +343,7 @@ export const PostDetail = ({ postId }: { postId: string }) => {
       toast.error("Please log in to request adoption");
       return;
     }
-    
+
     if (!post || !post.user_id) {
       toast.error("Unable to process request. Missing pet information.");
       return;
@@ -329,15 +352,19 @@ export const PostDetail = ({ postId }: { postId: string }) => {
     try {
       setIsRequesting(true);
       await sendAdoptionRequest(
-        numericPostId, 
-        user.id, 
+        numericPostId,
+        user.id,
         post.user_id,
         post.name || "this pet"
       );
       setHasRequested(true);
-      toast.success("Adoption request sent successfully! The owner will be notified.");
+      toast.success(
+        "Adoption request sent successfully! The owner will be notified."
+      );
     } catch (error: any) {
-      toast.error(error.message || "Failed to send adoption request. Please try again.");
+      toast.error(
+        error.message || "Failed to send adoption request. Please try again."
+      );
     } finally {
       setIsRequesting(false);
     }
@@ -348,15 +375,17 @@ export const PostDetail = ({ postId }: { postId: string }) => {
       toast.error("Please log in to cancel your request");
       return;
     }
-    
+
     if (!post) {
       toast.error("Unable to process request. Missing pet information.");
       return;
     }
 
     // Prevent cancellation if request is approved
-    if (requestStatus === 'approved') {
-      toast.error("Cannot cancel an approved adoption request. Please contact the pet owner.");
+    if (requestStatus === "approved") {
+      toast.error(
+        "Cannot cancel an approved adoption request. Please contact the pet owner."
+      );
       return;
     }
 
@@ -367,7 +396,9 @@ export const PostDetail = ({ postId }: { postId: string }) => {
       setRequestStatus(null);
       toast.success("Adoption request cancelled successfully.");
     } catch (error: any) {
-      toast.error(error.message || "Failed to cancel request. Please try again.");
+      toast.error(
+        error.message || "Failed to cancel request. Please try again."
+      );
     } finally {
       setIsRequesting(false);
     }
@@ -376,14 +407,14 @@ export const PostDetail = ({ postId }: { postId: string }) => {
   // Function to get status color
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Available':
-        return 'from-green-400 to-teal-400';
-      case 'Pending':
-        return 'from-yellow-400 to-amber-400';
-      case 'Adopted':
-        return 'from-blue-400 to-sky-400';
+      case "Available":
+        return "from-green-400 to-teal-400";
+      case "Pending":
+        return "from-yellow-400 to-amber-400";
+      case "Adopted":
+        return "from-blue-400 to-sky-400";
       default:
-        return 'from-gray-400 to-gray-500';
+        return "from-gray-400 to-gray-500";
     }
   };
 
@@ -396,8 +427,10 @@ export const PostDetail = ({ postId }: { postId: string }) => {
 
   // Function to get clean health info without the vaccination proof URL
   const getCleanHealthInfo = (healthInfo: string) => {
-    if (!healthInfo) return '';
-    return healthInfo.replace(/Vaccination Proof: https:\/\/[^\s]+/g, '').trim();
+    if (!healthInfo) return "";
+    return healthInfo
+      .replace(/Vaccination Proof: https:\/\/[^\s]+/g, "")
+      .trim();
   };
 
   // Before rendering the main content, handle loading and error states
@@ -414,12 +447,19 @@ export const PostDetail = ({ postId }: { postId: string }) => {
     return (
       <div className="max-w-4xl mx-auto p-6 bg-white/90 rounded-xl shadow-md backdrop-blur-md text-center">
         <FaPaw className="text-5xl mx-auto mb-4 text-violet-300" />
-        <h2 className="text-xl font-bold text-violet-800 mb-4">Error Loading Pet Details</h2>
-        <p className="text-gray-600 mb-6">{error?.message || "Unable to load pet information. The pet may no longer be available."}</p>
+        <h2 className="text-xl font-bold text-violet-800 mb-4">
+          Error Loading Pet Details
+        </h2>
+        <p className="text-gray-600 mb-6">
+          {error?.message ||
+            "Unable to load pet information. The pet may no longer be available."}
+        </p>
         <div className="flex justify-center gap-4">
-          <button 
+          <button
             onClick={() => {
-              queryClient.invalidateQueries({ queryKey: ['post', numericPostId] });
+              queryClient.invalidateQueries({
+                queryKey: ["post", numericPostId],
+              });
               setLoadingAttempts(0); // Reset attempts
               window.location.reload(); // Force a full page reload as a last resort
             }}
@@ -427,8 +467,8 @@ export const PostDetail = ({ postId }: { postId: string }) => {
           >
             Try Again
           </button>
-          <button 
-            onClick={() => navigate('/search')}
+          <button
+            onClick={() => navigate("/search")}
             className="px-4 py-2 bg-gradient-to-r from-violet-500 to-purple-500 text-white rounded-lg hover:from-violet-600 hover:to-purple-600 transition-all font-medium"
           >
             Back to Search
@@ -438,13 +478,19 @@ export const PostDetail = ({ postId }: { postId: string }) => {
     );
   }
 
-  const vaccinationProofUrl = post?.health_info ? extractVaccinationProof(post.health_info) : null;
-  const cleanHealthInfo = post?.health_info ? getCleanHealthInfo(post.health_info) : '';
-  
+  const vaccinationProofUrl = post?.health_info
+    ? extractVaccinationProof(post.health_info)
+    : null;
+  const cleanHealthInfo = post?.health_info
+    ? getCleanHealthInfo(post.health_info)
+    : "";
+
   // Determine if the adoption button should be visible
-  const showAdoptionButton = user && post && 
+  const showAdoptionButton =
+    user &&
+    post &&
     user.id !== post.user_id && // User is not the owner
-    post.status === 'Available'; // Pet status is available
+    post.status === "Available"; // Pet status is available
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -491,9 +537,10 @@ export const PostDetail = ({ postId }: { postId: string }) => {
         {/* Header with Avatar and Status */}
         <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
           <div className="flex items-center space-x-4">
-          
             <div>
-              <h2 className="text-3xl font-bold text-violet-800 font-['Quicksand']">{post?.name}</h2>
+              <h2 className="text-3xl font-bold text-violet-800 font-['Quicksand']">
+                {post?.name}
+              </h2>
               {post?.breed && (
                 <div className="text-violet-600 flex items-center font-['Poppins']">
                   <MdPets className="mr-1 text-violet-400" />
@@ -503,7 +550,11 @@ export const PostDetail = ({ postId }: { postId: string }) => {
             </div>
           </div>
           {post?.status && (
-            <span className={`px-4 py-2 rounded-full text-sm font-medium text-white bg-gradient-to-r ${getStatusColor(post.status)} shadow-md font-['Poppins']`}>
+            <span
+              className={`px-4 py-2 rounded-full text-sm font-medium text-white bg-gradient-to-r ${getStatusColor(
+                post.status
+              )} shadow-md font-['Poppins']`}
+            >
               {post.status}
             </span>
           )}
@@ -518,7 +569,8 @@ export const PostDetail = ({ postId }: { postId: string }) => {
               className="w-full h-[400px] object-cover"
               onError={(e) => {
                 // When image fails to load, replace with a placeholder
-                e.currentTarget.src = 'https://via.placeholder.com/800x400?text=Image+Unavailable';
+                e.currentTarget.src =
+                  "https://via.placeholder.com/800x400?text=Image+Unavailable";
               }}
             />
           </div>
@@ -526,8 +578,12 @@ export const PostDetail = ({ postId }: { postId: string }) => {
 
         {/* Pet Info */}
         <div className="mb-8">
-          <h3 className="text-lg font-semibold text-violet-800 mb-4 font-['Quicksand']">About {post?.name}</h3>
-          <p className="text-gray-600 mb-6 font-['Poppins'] whitespace-pre-line">{post?.content}</p>
+          <h3 className="text-lg font-semibold text-violet-800 mb-4 font-['Quicksand']">
+            About {post?.name}
+          </h3>
+          <p className="text-gray-600 mb-6 font-['Poppins'] whitespace-pre-line">
+            {post?.content}
+          </p>
         </div>
 
         {/* Additional Photos Gallery */}
@@ -546,7 +602,8 @@ export const PostDetail = ({ postId }: { postId: string }) => {
                   className="w-full h-48 object-cover rounded-xl shadow-sm hover:shadow-md transition-shadow duration-300 border border-violet-100"
                   onError={(e) => {
                     // When image fails to load, replace with a placeholder
-                    e.currentTarget.src = 'https://via.placeholder.com/400x300?text=Image+Unavailable';
+                    e.currentTarget.src =
+                      "https://via.placeholder.com/400x300?text=Image+Unavailable";
                   }}
                 />
               ))}
@@ -557,37 +614,51 @@ export const PostDetail = ({ postId }: { postId: string }) => {
         {/* Pet Details Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <div className="bg-violet-50 p-5 rounded-xl border border-violet-100">
-            <h3 className="text-lg font-semibold text-violet-800 mb-4 font-['Quicksand']">Pet Details</h3>
-          {/* Location and Age */}
+            <h3 className="text-lg font-semibold text-violet-800 mb-4 font-['Quicksand']">
+              Pet Details
+            </h3>
+            {/* Location and Age */}
             <div className="space-y-3 font-['Poppins']">
-            {post?.location && (
+              {post?.location && (
                 <div className="flex items-center text-violet-700">
                   <FaMapMarkerAlt className="mr-2 text-violet-500" />
-                  <span><strong>Location:</strong> {post.location}</span>
-              </div>
-            )}
-            {post?.age && (
+                  <span>
+                    <strong>Location:</strong> {post.location}
+                  </span>
+                </div>
+              )}
+              {post?.age && (
                 <div className="flex items-center text-violet-700">
                   <FaCalendarAlt className="mr-2 text-violet-500" />
-                  <span><strong>Age:</strong> {post.age} months</span>
-              </div>
-            )}
-            {post?.size && (
+                  <span>
+                    <strong>Age:</strong> {post.age} months
+                  </span>
+                </div>
+              )}
+              {post?.size && (
                 <div className="flex items-center text-violet-700">
                   <FaRuler className="mr-2 text-violet-500" />
-                  <span><strong>Size:</strong> {post.size}</span>
-              </div>
-            )}
-            {post?.vaccination_status !== undefined && (
+                  <span>
+                    <strong>Size:</strong> {post.size}
+                  </span>
+                </div>
+              )}
+              {post?.vaccination_status !== undefined && (
                 <div className="flex items-center text-violet-700">
                   <FaSyringe className="mr-2 text-violet-500" />
-                  <span><strong>Vaccination Status:</strong> {post.vaccination_status ? 'Vaccinated' : 'Not vaccinated'}</span>
+                  <span>
+                    <strong>Vaccination Status:</strong>{" "}
+                    {post.vaccination_status ? "Vaccinated" : "Not vaccinated"}
+                  </span>
                 </div>
               )}
               {post?.created_at && (
                 <div className="flex items-center text-violet-700">
                   <FaClock className="mr-2 text-violet-500" />
-                  <span><strong>Posted:</strong> {new Date(post.created_at).toLocaleDateString()}</span>
+                  <span>
+                    <strong>Posted:</strong>{" "}
+                    {new Date(post.created_at).toLocaleDateString()}
+                  </span>
                 </div>
               )}
             </div>
@@ -602,26 +673,30 @@ export const PostDetail = ({ postId }: { postId: string }) => {
                   <FaHeartbeat className="mr-2 text-violet-500" />
                   Health Information
                 </h3>
-                <p className="text-gray-600 whitespace-pre-line font-['Poppins']">{cleanHealthInfo}</p>
-          </div>
-        )}
+                <p className="text-gray-600 whitespace-pre-line font-['Poppins']">
+                  {cleanHealthInfo}
+                </p>
+              </div>
+            )}
 
             {/* Temperament */}
-        {post?.temperament && post.temperament.length > 0 && (
+            {post?.temperament && post.temperament.length > 0 && (
               <div className="bg-violet-50 p-5 rounded-xl border border-violet-100">
-                <h3 className="text-lg font-semibold text-violet-800 mb-3 font-['Quicksand']">Temperament</h3>
-            <div className="flex flex-wrap gap-2">
+                <h3 className="text-lg font-semibold text-violet-800 mb-3 font-['Quicksand']">
+                  Temperament
+                </h3>
+                <div className="flex flex-wrap gap-2">
                   {post.temperament.map((trait, index) => (
-                <span
-                  key={index}
+                    <span
+                      key={index}
                       className="px-3 py-1 bg-white rounded-full text-violet-700 border border-violet-200 shadow-sm font-['Poppins'] text-sm"
-                >
-                  {trait}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
+                    >
+                      {trait}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -639,44 +714,45 @@ export const PostDetail = ({ postId }: { postId: string }) => {
                 className="max-w-full max-h-80 object-contain mx-auto rounded-lg"
                 onError={(e) => {
                   // When image fails to load, replace with a message
-                  e.currentTarget.style.display = 'none';
+                  e.currentTarget.style.display = "none";
                   const parent = e.currentTarget.parentElement;
                   if (parent) {
-                    parent.innerHTML = '<div class="p-4 text-center text-violet-700">Vaccination proof image unavailable</div>';
+                    parent.innerHTML =
+                      '<div class="p-4 text-center text-violet-700">Vaccination proof image unavailable</div>';
                   }
                 }}
               />
             </div>
           </div>
         )}
-        
+
         {/* Action Buttons Section */}
         <div className="mt-8 mb-8 grid grid-cols-1 md:grid-cols-2 gap-2">
           {/* Request Adoption Button - only shown if user is not the owner and pet is available */}
           {showAdoptionButton && (
             <div className="flex items-center justify-end gap-2">
               <button
-                  onClick={() => {
-                    if (user) {
-                      // Pass both the owner's ID and the pet's name to the chat system
-                      navigate(`/chat`, { 
-                        state: { 
-                          otherUserId: post.user_id,
-                          petName: post.name,
-                          petOwnerId: post.user_id,
-                          postId: post.id
-                        } 
-                      });
-                    } else {
-                      toast.error("Please login to chat with the owner");
-                      navigate('/login');
-                    }
-                  }}
-                  className="flex items-center justify-center gap-2 py-3 px-6 rounded-xl font-medium font-['Poppins'] text-white transition-all duration-300 shadow-md bg-gradient-to-r from-blue-500 to-teal-500 hover:from-blue-600 hover:to-teal-600 transform hover:scale-105"
-                >
-                  <FaEnvelope className="text-xl" />
-                  Chat with Owner
-                </button>
+                onClick={() => {
+                  if (user) {
+                    // Pass both the owner's ID and the pet's name to the chat system
+                    navigate(`/chat`, {
+                      state: {
+                        otherUserId: post.user_id,
+                        petName: post.name,
+                        petOwnerId: post.user_id,
+                        postId: post.id,
+                      },
+                    });
+                  } else {
+                    toast.error("Please login to chat with the owner");
+                    navigate("/login");
+                  }
+                }}
+                className="flex items-center justify-center gap-2 py-3 px-6 rounded-xl font-medium font-['Poppins'] text-white transition-all duration-300 shadow-md bg-gradient-to-r from-blue-500 to-teal-500 hover:from-blue-600 hover:to-teal-600 transform hover:scale-105"
+              >
+                <FaEnvelope className="text-xl" />
+                Chat with Owner
+              </button>
               {!hasRequested ? (
                 <button
                   onClick={handleAdoptionRequest}
@@ -684,47 +760,53 @@ export const PostDetail = ({ postId }: { postId: string }) => {
                   className="flex items-center justify-center gap-2 py-3 px-6 rounded-xl font-medium font-['Poppins'] text-white transition-all duration-300 shadow-md bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 transform hover:scale-105"
                 >
                   <FaHandHoldingHeart className="text-xl" />
-                  {isRequesting ? 'Sending Request...' : 'Request for Adoption'}
+                  {isRequesting ? "Sending Request..." : "Request for Adoption"}
                 </button>
-               
               ) : (
                 <div className="space-y-2">
-                  <div className={`text-white rounded-lg p-3 flex items-center gap-2 font-['Poppins'] ${
-                    requestStatus === 'approved' ? 'bg-green-500' : 
-                    requestStatus === 'rejected' ? 'bg-red-500' :
-                    'bg-yellow-500'
-                  }`}>
+                  <div
+                    className={`text-white rounded-lg p-3 flex items-center gap-2 font-['Poppins'] ${
+                      requestStatus === "approved"
+                        ? "bg-green-500"
+                        : requestStatus === "rejected"
+                        ? "bg-red-500"
+                        : "bg-yellow-500"
+                    }`}
+                  >
                     <FaHandHoldingHeart className="text-white" />
                     <span>
-                      {requestStatus === 'approved' ? 'Adoption Request Approved!' : 
-                       requestStatus === 'rejected' ? 'Adoption Request Rejected' :
-                       'Adoption Requested'}
+                      {requestStatus === "approved"
+                        ? "Adoption Request Approved!"
+                        : requestStatus === "rejected"
+                        ? "Adoption Request Rejected"
+                        : "Adoption Requested"}
                     </span>
                   </div>
-                  
-                  {requestStatus === 'pending' && (
+
+                  {requestStatus === "pending" && (
                     <button
                       onClick={handleCancelRequest}
                       disabled={isRequesting}
                       className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl font-medium font-['Poppins'] text-white transition-all duration-300 shadow-md bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600"
                     >
-                      {isRequesting ? 'Cancelling...' : 'Cancel Request'}
+                      {isRequesting ? "Cancelling..." : "Cancel Request"}
                     </button>
                   )}
-                  
-                  {requestStatus === 'approved' && (
+
+                  {requestStatus === "approved" && (
                     <p className="text-green-600 text-xs text-center font-['Poppins']">
-                      Your request has been approved! The owner will contact you soon.
+                      Your request has been approved! The owner will contact you
+                      soon.
                     </p>
                   )}
-                  
-                  {requestStatus === 'rejected' && (
+
+                  {requestStatus === "rejected" && (
                     <p className="text-red-600 text-xs text-center font-['Poppins']">
                       Your request has been rejected by the owner.
                     </p>
                   )}
-                  
-                  {requestStatus === 'pending' && (
+
+                  {requestStatus === "pending" && (
                     <p className="text-yellow-600 text-xs text-center font-['Poppins']">
                       Your request is pending. The owner will review it soon.
                     </p>
