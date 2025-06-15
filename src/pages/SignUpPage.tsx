@@ -1,159 +1,203 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { supabase } from "../supabase-client";
-import { FaPaw, FaLock, FaEnvelope, FaCheck } from "react-icons/fa";
+import { FaPaw, FaLock, FaEnvelope } from "react-icons/fa";
+import { useAuth } from "../context/AuthContext";
 
 const SignUpPage = () => {
   const navigate = useNavigate();
+  const { signUpWithEmail } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleSignUp = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
     setError("");
-    setSuccess("");
+
+    // Validate passwords match
     if (password !== confirmPassword) {
       setError("Passwords do not match");
+      setLoading(false);
       return;
     }
-    setLoading(true);
-    const { error } = await supabase.auth.signUp({ email, password });
-    setLoading(false);
-    if (error) {
-      setError(error.message);
-    } else {
-      setSuccess("Check your email to confirm your account.");
-      setTimeout(() => navigate("/login"), 2000);
+
+    // Validate password strength
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters long");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const { success, error } = await signUpWithEmail(email, password);
+
+      // Always redirect to verify-email, regardless of error type
+      if (success) {
+        navigate("/verify-email", {
+          state: {
+            email,
+            message: "Please check your email to verify your account before signing in."
+          }
+        });
+      } else {
+        // If the error is 'email_not_confirmed', still redirect
+        if (error === 'Email not confirmed' || error === 'email_not_confirmed') {
+          navigate("/verify-email", {
+            state: {
+              email,
+              message: "Please check your email to verify your account before signing in."
+            }
+          });
+        } else {
+          setError(error || "An unexpected error occurred. Please try again.");
+        }
+      }
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        setError(error.message);
+      } else {
+        setError("An unexpected error occurred. Please try again.");
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-violet-100 via-blue-50 to-green-100 p-4 relative overflow-hidden">
-      {/* Animated footprints background */}
-      <div className="fixed inset-0 pointer-events-none z-0">
-        {Array.from({ length: 30 }).map((_, i) => (
-          <FaPaw
-            key={i}
-            className="absolute text-violet-600 animate-float opacity-10"
-            style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              fontSize: `${Math.random() * 2 + 1}rem`,
-              animationDelay: `${Math.random() * 10}s`,
-              animationDuration: `${Math.random() * 10 + 15}s`,
-              transform: `rotate(${Math.random() * 360}deg)`,
-            }}
-          />
-        ))}
-      </div>
-      
-      <div className="absolute top-0 left-0 w-full h-64 bg-gradient-to-b from-violet-600/10 to-transparent"></div>
-      <div className="absolute bottom-0 right-0 w-full h-64 bg-gradient-to-t from-blue-600/10 to-transparent"></div>
-      
-      <div className="bg-white/90 backdrop-blur-lg rounded-3xl shadow-2xl p-8 md:p-12 w-full max-w-md relative transform transition-all duration-300 hover:shadow-3xl z-10 border border-violet-200">
-        <div className="flex justify-center mb-8">
-          <div className="bg-gradient-to-br from-violet-600 to-blue-600 p-4 rounded-2xl shadow-lg">
-            <FaPaw className="text-white text-4xl animate-pulse" />
+    <div className="min-h-screen flex bg-gray-50">
+      {/* Left Section */}
+      <div className="w-1/2 p-12 flex flex-col justify-between bg-white">
+        <div>
+          <div className="mb-8">
+            <FaPaw className="text-violet-600 text-4xl" />
+          </div>
+          <h1 className="text-5xl font-bold mb-6 text-gray-900">
+            Find the perfect companion for your family.
+          </h1>
+          <p className="text-xl text-gray-600 mb-12">
+            Join our community of pet lovers and find your next furry friend.
+          </p>
+        </div>
+
+        {/* Testimonial Card */}
+        <div className="bg-gray-900 text-white p-8 rounded-2xl">
+          <p className="text-lg mb-6">
+            "Thanks to this platform, I found my perfect companion. The process was smooth and the community is amazing!"
+          </p>
+          <div className="flex items-center">
+            <div className="w-12 h-12 bg-violet-600 rounded-full flex items-center justify-center text-xl font-bold">
+              JD
+            </div>
+            <div className="ml-4">
+              <p className="font-semibold">John Doe</p>
+              <p className="text-gray-400">Pet Owner</p>
+            </div>
           </div>
         </div>
-        
-        <h2 className="text-4xl font-bold mb-3 text-center text-violet-800 font-['Quicksand']">
-          Create Account
-        </h2>
-        <p className="text-center text-gray-700 mb-8 font-['Poppins'] text-lg">Join the SmartPet community today</p>
+      </div>
 
-        <form onSubmit={handleSignUp} className="space-y-6">
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700 font-['Poppins'] block mb-1">Email Address</label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <FaEnvelope className="text-violet-500" />
+      {/* Right Section */}
+      <div className="w-1/2 p-12 flex items-center justify-center">
+        <div className="w-full max-w-md">
+          <h2 className="text-3xl font-bold mb-2 text-gray-900">Create your account</h2>
+          <p className="text-gray-600 mb-8">Join as a pet owner and find your perfect companion</p>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Email Address
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <FaEnvelope className="text-gray-400" />
+                </div>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full pl-10 px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                  placeholder="Enter your email"
+                  required
+                />
               </div>
-              <input
-                type="email"
-                placeholder="Enter your email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                className="w-full pl-10 px-4 py-4 rounded-xl border-2 border-violet-200 focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent font-['Poppins'] bg-white text-gray-800 font-medium shadow-sm"
-                required
-              />
             </div>
-          </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700 font-['Poppins'] block mb-1">Password</label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <FaLock className="text-violet-500" />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Password
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <FaLock className="text-gray-400" />
+                </div>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full pl-10 px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                  placeholder="Create a password (min. 6 characters)"
+                  required
+                  minLength={6}
+                />
               </div>
-              <input
-                type="password"
-                placeholder="Create a password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                className="w-full pl-10 px-4 py-4 rounded-xl border-2 border-violet-200 focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent font-['Poppins'] bg-white text-gray-800 font-medium shadow-sm"
-                required
-              />
             </div>
-          </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700 font-['Poppins'] block mb-1">Confirm Password</label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <FaCheck className="text-violet-500" />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Confirm Password
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <FaLock className="text-gray-400" />
+                </div>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full pl-10 px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                  placeholder="Confirm your password"
+                  required
+                  minLength={6}
+                />
               </div>
-              <input
-                type="password"
-                placeholder="Confirm your password"
-                value={confirmPassword}
-                onChange={e => setConfirmPassword(e.target.value)}
-                className="w-full pl-10 px-4 py-4 rounded-xl border-2 border-violet-200 focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent font-['Poppins'] bg-white text-gray-800 font-medium shadow-sm"
-                required
-              />
             </div>
-          </div>
 
-          {error && (
-            <div className="text-red-600 text-sm text-center p-3 bg-red-50 rounded-lg font-['Poppins'] font-medium border border-red-200">
-              {error}
-            </div>
-          )}
-          {success && (
-            <div className="text-green-600 text-sm text-center p-3 bg-green-50 rounded-lg font-['Poppins'] font-medium border border-green-200">
-              {success}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            className="w-full bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-700 hover:to-blue-700 text-white py-4 rounded-xl font-semibold font-['Poppins'] text-lg transition-all duration-300 transform hover:scale-[1.02] hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-            disabled={loading}
-          >
-            {loading ? (
-              <div className="flex items-center justify-center">
-                <div className="w-5 h-5 border-t-2 border-b-2 border-white rounded-full animate-spin mr-2"></div>
-                Creating account...
+            {error && (
+              <div className="text-red-600 text-sm p-3 bg-red-50 rounded-lg border border-red-200">
+                {error}
               </div>
-            ) : (
-              "Create Account"
             )}
-          </button>
-        </form>
 
-        <div className="flex justify-center mt-8 text-base font-['Poppins']">
-          <p className="text-gray-700">Already have an account?{" "}
-            <Link 
-              to="/login" 
-              className="text-violet-700 hover:text-violet-800 font-semibold hover:underline transition-all duration-200"
+            <button
+              type="submit"
+              className="w-full bg-violet-600 text-white py-3 rounded-lg font-semibold hover:bg-violet-700 transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={loading}
             >
-              Sign In
-            </Link>
-          </p>
+              {loading ? (
+                <div className="flex items-center justify-center">
+                  <svg className="animate-spin h-5 w-5 mr-3 text-white" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Creating account...
+                </div>
+              ) : (
+                "Create Account"
+              )}
+            </button>
+
+            <div className="text-center">
+              <p className="text-gray-600">
+                Already have an account?{" "}
+                <Link to="/login" className="text-violet-600 hover:text-violet-800 font-semibold">
+                  Sign in
+                </Link>
+              </p>
+            </div>
+          </form>
         </div>
       </div>
     </div>

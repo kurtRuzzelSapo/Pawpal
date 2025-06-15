@@ -1,3 +1,10 @@
+-- Enable UUID extension
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- Drop existing triggers and functions
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+DROP FUNCTION IF EXISTS handle_new_user();
+
 -- Drop existing tables if they exist
 DROP TABLE IF EXISTS comments CASCADE;
 DROP TABLE IF EXISTS votes CASCADE;
@@ -10,16 +17,86 @@ DROP TABLE IF EXISTS user_badges CASCADE;
 
 -- Create users table with enhanced profile
 CREATE TABLE users (
-    id UUID PRIMARY KEY DEFAULT auth.uid(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    bio TEXT,
-    user_id UUID REFERENCES auth.users,
-    favorites TEXT[],
+    user_id UUID NOT NULL,
+    bio TEXT DEFAULT '',
+    role TEXT DEFAULT 'user' CHECK (role IN ('user', 'vet', 'admin')),
+    favorites TEXT[] DEFAULT ARRAY[]::TEXT[],
     is_shelter BOOLEAN DEFAULT FALSE,
-    adoption_history TEXT[],
-    location TEXT,
-    verified BOOLEAN DEFAULT FALSE
+    adoption_history TEXT[] DEFAULT ARRAY[]::TEXT[],
+    location TEXT DEFAULT '',
+    verified BOOLEAN DEFAULT FALSE,
+    UNIQUE(user_id),
+    CONSTRAINT fk_user
+        FOREIGN KEY (user_id)
+        REFERENCES auth.users(id)
+        ON DELETE CASCADE
 );
+
+-- Enable RLS
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies
+DROP POLICY IF EXISTS "Enable read access for own profile" ON users;
+DROP POLICY IF EXISTS "Enable update access for own profile" ON users;
+DROP POLICY IF EXISTS "Enable insert for registration" ON users;
+
+-- Create RLS policies
+CREATE POLICY "Enable read access for own profile"
+    ON users FOR SELECT
+    USING (auth.uid() = user_id);
+
+CREATE POLICY "Enable update access for own profile"
+    ON users FOR UPDATE
+    USING (auth.uid() = user_id);
+
+-- Allow insert during signup
+CREATE POLICY "Enable insert for registration"
+    ON users FOR INSERT
+    WITH CHECK (true);  -- Allow all inserts, since we're using a trigger
+
+-- Create a function to handle user registration
+CREATE OR REPLACE FUNCTION handle_new_user() 
+RETURNS TRIGGER 
+SECURITY DEFINER SET search_path = public
+AS $$
+BEGIN
+    INSERT INTO public.users (
+        user_id,
+        bio,
+        role,
+        favorites,
+        is_shelter,
+        adoption_history,
+        location,
+        verified
+    ) VALUES (
+        NEW.id,  -- auth.users.id
+        '',      -- empty bio
+        'user',  -- default role
+        ARRAY[]::TEXT[],  -- empty favorites
+        FALSE,   -- not a shelter
+        ARRAY[]::TEXT[],  -- empty adoption history
+        '',      -- empty location
+        FALSE    -- not verified
+    );
+    RETURN NEW;
+EXCEPTION
+    WHEN others THEN
+        RAISE LOG 'Error in handle_new_user: %', SQLERRM;
+        RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create a trigger to automatically create a user profile after signup
+CREATE TRIGGER on_auth_user_created
+    AFTER INSERT ON auth.users
+    FOR EACH ROW EXECUTE FUNCTION handle_new_user();
+
+-- Grant necessary permissions
+GRANT ALL ON TABLE users TO authenticated;
+GRANT ALL ON TABLE users TO service_role;
 
 -- Create communities table
 CREATE TABLE communities (

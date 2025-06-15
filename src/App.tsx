@@ -20,6 +20,7 @@ import ContactPage from "./pages/ContactPage";
 import ChatPage from "./pages/ChatPage";
 import { useParams } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
+import VerifyEmailPage from "./pages/VerifyEmailPage";
 
 const PetProfileWrapper = () => {
   const { id } = useParams<{ id: string }>();
@@ -64,10 +65,13 @@ function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignUpPage />} />
+        <Route path="/signupvet" element={<SignUpPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/contact" element={<ContactPage />} />
+        <Route path="verify-email" element={<VerifyEmailPage />} />
+
         <Route
           path="*"
           element={

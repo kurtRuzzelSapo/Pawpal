@@ -28,17 +28,39 @@ interface Pet {
 }
 
 const fetchFilteredPets = async (filters: SearchFilters): Promise<Pet[]> => {
-  const { data, error } = await supabase.rpc("get_filtered_posts", {
-    breed_filter: filters.breed || null,
-    age_min: filters.ageMin || null,
-    age_max: filters.ageMax || null,
-    location_filter: filters.location || null,
-    size_filter: filters.size || null,
-    status_filter: filters.status || null,
-  });
+  try {
+    let query = supabase
+      .from("posts")
+      .select("*")
+      .order("created_at", { ascending: false });
 
-  if (error) throw new Error(error.message);
-  return data as Pet[];
+    if (filters.breed) {
+      query = query.ilike("breed", `%${filters.breed}%`);
+    }
+    if (filters.location) {
+      query = query.ilike("location", `%${filters.location}%`);
+    }
+    if (filters.size) {
+      query = query.eq("size", filters.size);
+    }
+    if (filters.status) {
+      query = query.eq("status", filters.status);
+    }
+    if (filters.ageMin !== undefined) {
+      query = query.gte("age", filters.ageMin);
+    }
+    if (filters.ageMax !== undefined) {
+      query = query.lte("age", filters.ageMax);
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw new Error(error.message);
+    return data || [];
+  } catch (error) {
+    console.error("Error fetching filtered pets:", error);
+    return [];
+  }
 };
 
 export const PetSearch = () => {

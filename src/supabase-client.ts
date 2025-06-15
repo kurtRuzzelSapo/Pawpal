@@ -1,15 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseURL = "https://xnskynghatlhxplxcmal.supabase.co";
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-export const supabase = createClient(supabaseURL, supabaseAnonKey, {
-    auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-        storage: window.localStorage,
-        storageKey: 'supabase.auth.token',
-        flowType: 'pkce'
-    }
-});
+if (!supabaseAnonKey) {
+  throw new Error('Missing VITE_SUPABASE_ANON_KEY environment variable');
+}
+
+export const supabase = createClient(supabaseURL, supabaseAnonKey);

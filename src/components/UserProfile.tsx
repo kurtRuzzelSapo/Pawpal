@@ -13,7 +13,6 @@ interface UserData {
   verified: boolean;
   adoption_history: string[];
   favorites: string[];
-  username?: string;
   avatar_url?: string;
 }
 
@@ -62,7 +61,7 @@ interface UserDocument {
 const fetchUserPosts = async (userId: string): Promise<Post[]> => {
   // Get all posts by this user
   const { data, error } = await supabase
-    .from("post")
+    .from("posts")
     .select("*")
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
@@ -125,20 +124,19 @@ const fetchUserData = async (userId: string): Promise<UserData> => {
   const { data, error } = await supabase
     .from("users")
     .select("*")
-    .eq("id", userId)
+    .eq("user_id", userId)
     .maybeSingle();
 
   // If no error but no data, or if error is about no rows, create new user
   if ((!error && !data) || (error && error.message.includes("no rows"))) {
     const defaultUserData = {
-      id: userId,
+      user_id: userId,
       bio: "",
       location: "",
       is_shelter: false,
       verified: false,
       adoption_history: [],
       favorites: [],
-      username: "",
       avatar_url: ""
     };
 
@@ -163,13 +161,21 @@ const fetchUserData = async (userId: string): Promise<UserData> => {
 };
 
 const fetchUserBadges = async (userId: string): Promise<Badge[]> => {
-  const { data, error } = await supabase
-    .from("user_badges")
-    .select("*")
-    .eq("user_id", userId);
+  try {
+    const { data, error } = await supabase
+      .from("user_badges")
+      .select("*")
+      .eq("user_id", userId);
 
-  if (error) throw new Error(error.message);
-  return data || [];
+    if (error) {
+      console.log("Badges not available:", error.message);
+      return [];
+    }
+    return data || [];
+  } catch (error) {
+    console.log("Error fetching badges:", error);
+    return [];
+  }
 };
 
 const fetchUserDocuments = async (userId: string): Promise<UserDocument[]> => {
@@ -267,32 +273,53 @@ const guessContentType = (filename: string): string => {
 
 // Two-step fetch: 1) adoption_requests, 2) owners
 const fetchUserAdoptionRequests = async (userId: string) => {
-  // 1. Fetch adoption requests (with post join only)
-  const { data: requests, error } = await supabase
-    .from('adoption_requests')
-    .select('*, post:post_id(name, created_at, user_id)')
-    .eq('requester_id', userId)
-    .order('created_at', { ascending: false });
-  if (error) throw error;
-  if (!requests || requests.length === 0) return [];
+  try {
+    // 1. Fetch adoption requests
+    const { data: requests, error } = await supabase
+      .from('adoption_requests')
+      .select(`
+        *,
+        posts:post_id (
+          name,
+          created_at,
+          user_id
+        )
+      `)
+      .eq('requester_id', userId)
+      .order('created_at', { ascending: false });
 
-  // 2. Extract unique owner_ids
-  const ownerIds = [...new Set(requests.map(r => r.owner_id).filter(Boolean))];
-  if (ownerIds.length === 0) return requests;
+    if (error) {
+      console.log("Error fetching adoption requests:", error.message);
+      return [];
+    }
+    if (!requests || requests.length === 0) return [];
 
-  // 3. Fetch owners from profiles
-  const { data: owners, error: ownersError } = await supabase
-    .from('profiles')
-    .select('id, full_name')
-    .in('id', ownerIds);
-  if (ownersError) throw ownersError;
-  const ownerMap = Object.fromEntries((owners || []).map(o => [o.id, o]));
+    // 2. Extract unique owner_ids
+    const ownerIds = [...new Set(requests.map(r => r.owner_id).filter(Boolean))];
+    if (ownerIds.length === 0) return requests;
 
-  // 4. Merge owner info into requests
-  return requests.map(r => ({
-    ...r,
-    owner: ownerMap[r.owner_id] || null,
-  }));
+    // 3. Fetch owners from profiles
+    const { data: owners, error: ownersError } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .in('id', ownerIds);
+
+    if (ownersError) {
+      console.log("Error fetching owners:", ownersError.message);
+      return requests;
+    }
+
+    const ownerMap = Object.fromEntries((owners || []).map(o => [o.id, o]));
+
+    // 4. Merge owner info into requests
+    return requests.map(r => ({
+      ...r,
+      owner: ownerMap[r.owner_id] || null,
+    }));
+  } catch (error) {
+    console.log("Error in fetchUserAdoptionRequests:", error);
+    return [];
+  }
 };
 
 interface UserProfileProps {
@@ -353,7 +380,7 @@ export const UserProfile = ({ profileId }: UserProfileProps) => {
       const { error } = await supabase
         .from("users")
         .update({ bio: newBio })
-        .eq("id", user.id);
+        .eq("user_id", user.id);
         
       if (error) throw error;
       
@@ -375,7 +402,7 @@ export const UserProfile = ({ profileId }: UserProfileProps) => {
       const { error } = await supabase
         .from("users")
         .update({ location: newLocation })
-        .eq("id", user.id);
+        .eq("user_id", user.id);
       if (error) throw error;
       refetchUser();
       setIsEditingLocation(false);

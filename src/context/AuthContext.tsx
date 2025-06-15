@@ -2,10 +2,15 @@ import { User } from "@supabase/supabase-js";
 import { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "../supabase-client";
 
+interface AuthResponse {
+  success: boolean;
+  error?: string;
+}
+
 interface AuthContextType {
   user: User | null;
-//   signInWithGithub: () => void;
-  signInWithGoogle: () => void;
+  signUpWithEmail: (email: string, password: string, role?: string) => Promise<AuthResponse>;
+  signInWithEmail: (email: string, password: string) => Promise<AuthResponse>;
   signOut: () => Promise<void>;
 }
 
@@ -38,19 +43,84 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  const signInWithGoogle = async () => {
+  const signUpWithEmail = async (email: string, password: string, role: string = "user"): Promise<AuthResponse> => {
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
+      // Step 1: Sign up
+      const { error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            email,
+            full_name: email.split('@')[0],
+          }
+        }
       });
-      if (error) throw error;
+
+      if (authError) {
+        return { success: false, error: authError.message };
+      }
+
+      // Step 2: Sign in (to get a session)
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (signInError) {
+        return { success: false, error: signInError.message };
+      }
+
+      // Step 3: Insert profile (now authenticated)
+      const { error: profileError } = await supabase
+        .from('users')
+        .insert([
+          {
+            user_id: signInData.user.id,
+            role: role
+          }
+        ])
+        .select()
+        .single();
+
+      if (profileError) {
+        return { success: false, error: "Failed to create user profile. Please try signing in, or contact support if the issue persists." };
+      }
+
+      return { success: true };
     } catch (error) {
-      console.error("Error signing in with Google:", error);
+      return { success: false, error: error instanceof Error ? error.message : "An unexpected error occurred" };
     }
   };
-//   const signInWithGithub = () => {
-//     supabase.auth.signInWithOAuth({ provider: "github" });
-//   };
+
+  const signInWithEmail = async (email: string, password: string): Promise<AuthResponse> => {
+    try {
+      console.log('Attempting to sign in...');
+      const { error } = await supabase.auth.signInWithPassword({
+        email: email.toLowerCase(),
+        password,
+      });
+
+      if (error) {
+        console.error('Sign in error:', error);
+        return {
+          success: false,
+          error: error.message
+        };
+      }
+
+      console.log('Sign in successful');
+      return {
+        success: true
+      };
+    } catch (error) {
+      console.error('Unexpected error during sign in:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to sign in",
+      };
+    }
+  };
 
   const signOut = async () => {
     try {
@@ -79,7 +149,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, signInWithGoogle, signOut }}>
+    <AuthContext.Provider value={{ user, signUpWithEmail, signInWithEmail, signOut }}>
       {children}
     </AuthContext.Provider>
   );

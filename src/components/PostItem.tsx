@@ -171,16 +171,6 @@ export const PostItem = ({ post }: Props) => {
 
           {/* Interaction Stats */}
           <div className="flex justify-between items-center mt-2 px-5 pb-5">
-            <div className="flex gap-4">
-              <span className="flex items-center text-pink-500 text-sm font-medium font-['Poppins']">
-                <FaHeart className="mr-1" />
-                {post.like_count ?? 0}
-              </span>
-              <span className="flex items-center text-blue-500 text-sm font-medium font-['Poppins']">
-                <FaComment className="mr-1" />
-                {post.comment_count ?? 0}
-              </span>
-            </div>
             <span className="text-violet-600 text-sm font-medium hover:text-violet-800 transition-colors font-['Poppins']">
               View Details →
             </span>

@@ -1,5 +1,7 @@
 @import "tailwindcss";
-
+  *{
+    font-family: "DynaPuff", cursive;
+  }
 @layer utilities {
   @keyframes blink {
     0%,

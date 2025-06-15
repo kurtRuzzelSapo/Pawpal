@@ -11,8 +11,6 @@ export interface Post {
   content: string;
   created_at: string;
   auth_users_id: string;
-  like_count: number;
-  comment_count: number;
   image_url?: string;
   additional_photos?: string[];
   age?: number;
@@ -44,9 +42,9 @@ export const PostList = () => {
     try {
       console.log("Fetching posts...");
       const { data: postsData, error: postsError } = await supabase
-    .from("post")
-    .select("*")
-    .order("created_at", { ascending: false });
+        .from("posts")
+        .select("*")
+        .order("created_at", { ascending: false });
 
       console.log("Posts data:", postsData);
       console.log("Posts error:", postsError);
@@ -58,35 +56,11 @@ export const PostList = () => {
         return;
       }
 
-      // Get comments count
-      const { data: commentsData } = await supabase
-        .from("comments")
-        .select("post_id");
-
-      // Get likes count
-      const { data: likesData } = await supabase
-        .from("likes")
-        .select("post_id");
-
-      // Count comments and likes
-      const commentCounts = new Map();
-      const likeCounts = new Map();
-
-      commentsData?.forEach(comment => {
-        const count = commentCounts.get(comment.post_id) || 0;
-        commentCounts.set(comment.post_id, count + 1);
-      });
-
-      likesData?.forEach(like => {
-        const count = likeCounts.get(like.post_id) || 0;
-        likeCounts.set(like.post_id, count + 1);
-      });
-
       // Transform the data to include counts
       const enrichedPosts = postsData.map(post => ({
         ...post,
-        like_count: likeCounts.get(post.id) || 0,
-        comment_count: commentCounts.get(post.id) || 0
+        like_count: 0,
+        comment_count: 0
       }));
 
       console.log("Enriched posts:", enrichedPosts);

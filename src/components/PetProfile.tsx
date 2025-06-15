@@ -25,7 +25,7 @@ interface Pet {
 
 const fetchPetById = async (id: number): Promise<Pet> => {
   const { data, error } = await supabase
-    .from("post")
+    .from("posts")
     .select("*")
     .eq("id", id)
     .single();

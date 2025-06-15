@@ -2,8 +2,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../supabase-client";
 import { Post } from "./PostList";
-import { LikeButton } from "./LikeButton";
-import { CommentSection } from "./CommentSection";
 import { FaPaw, FaMapMarkerAlt, FaSyringe, FaRuler, FaArrowLeft, FaTrash, FaCalendarAlt, FaHeartbeat, FaClock, FaHandHoldingHeart, FaEnvelope } from "react-icons/fa";
 import { MdPets } from "react-icons/md";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -14,7 +12,7 @@ import { AdoptionRequestsList } from "./AdoptionRequestsList";
 
 const fetchPostById = async (postId: number): Promise<Post> => {
   const { data, error } = await supabase
-    .from("post")
+    .from("posts")
     .select("*")
     .eq("id", postId)
     .single();
@@ -72,7 +70,7 @@ const deletePost = async (post: Post) => {
 
     // Finally, delete the post record
     const { error: postError } = await supabase
-      .from("post")
+      .from("posts")
       .delete()
       .eq("id", post.id);
 
@@ -225,11 +223,14 @@ export const PostDetail = ({ postId }: { postId: string }) => {
   // Create refs for sections we want to scroll to
   const adoptionRequestsRef = useRef<HTMLDivElement>(null);
 
+  // Convert postId to number for database queries
+  const numericPostId = parseInt(postId, 10);
+
   useEffect(() => {
     console.log(`PostDetail mounted with ID: ${postId}`);
     
     // Force refetch data on initial load and when postId changes
-    queryClient.invalidateQueries({ queryKey: ['post', parseInt(postId)] });
+    queryClient.invalidateQueries({ queryKey: ['post', numericPostId] });
     
     // Add a mandatory delay before showing content to ensure data is fetched
     const timer = setTimeout(() => {
@@ -241,7 +242,7 @@ export const PostDetail = ({ postId }: { postId: string }) => {
       clearTimeout(timer);
       console.log(`PostDetail unmounted for ID: ${postId}`);
     };
-  }, [postId, queryClient]);
+  }, [postId, queryClient, numericPostId]);
 
   // Check if the user has already requested this pet
   useEffect(() => {
@@ -255,7 +256,7 @@ export const PostDetail = ({ postId }: { postId: string }) => {
       const { data, error } = await supabase
         .from("adoption_requests")
         .select("*, status")
-        .eq("post_id", parseInt(postId))
+        .eq("post_id", numericPostId)
         .eq("requester_id", user?.id);
 
       if (error) {
@@ -273,8 +274,8 @@ export const PostDetail = ({ postId }: { postId: string }) => {
   };
 
   const { data: post, isLoading, isError, error } = useQuery<Post, Error>({
-    queryKey: ['post', parseInt(postId)],
-    queryFn: () => fetchPostById(parseInt(postId)),
+    queryKey: ['post', numericPostId],
+    queryFn: () => fetchPostById(numericPostId),
     retry: 3,
     retryDelay: 1000,
     refetchOnWindowFocus: false,
@@ -328,7 +329,7 @@ export const PostDetail = ({ postId }: { postId: string }) => {
     try {
       setIsRequesting(true);
       await sendAdoptionRequest(
-        parseInt(postId), 
+        numericPostId, 
         user.id, 
         post.user_id,
         post.name || "this pet"
@@ -361,7 +362,7 @@ export const PostDetail = ({ postId }: { postId: string }) => {
 
     try {
       setIsRequesting(true);
-      await cancelAdoptionRequest(parseInt(postId), user.id);
+      await cancelAdoptionRequest(numericPostId, user.id);
       setHasRequested(false);
       setRequestStatus(null);
       toast.success("Adoption request cancelled successfully.");
@@ -418,7 +419,7 @@ export const PostDetail = ({ postId }: { postId: string }) => {
         <div className="flex justify-center gap-4">
           <button 
             onClick={() => {
-              queryClient.invalidateQueries({ queryKey: ['post', parseInt(postId)] });
+              queryClient.invalidateQueries({ queryKey: ['post', numericPostId] });
               setLoadingAttempts(0); // Reset attempts
               window.location.reload(); // Force a full page reload as a last resort
             }}
@@ -651,10 +652,6 @@ export const PostDetail = ({ postId }: { postId: string }) => {
         
         {/* Action Buttons Section */}
         <div className="mt-8 mb-8 grid grid-cols-1 md:grid-cols-2 gap-2">
-          {/* Like Button */}
-          <div>
-            <LikeButton postId={parseInt(postId)} />
-          </div>
           {/* Request Adoption Button - only shown if user is not the owner and pet is available */}
           {showAdoptionButton && (
             <div className="flex items-center justify-end gap-2">
@@ -738,16 +735,10 @@ export const PostDetail = ({ postId }: { postId: string }) => {
           )}
         </div>
 
-        {/* Comments Section */}
-        <div className="mt-8">
-          <h3 className="text-xl font-bold text-violet-800 mb-4 font-['Quicksand']">Comments</h3>
-          <CommentSection postId={parseInt(postId)} />
-        </div>
-
         {/* Adoption Requests Section - Only visible to post owner */}
         {user && post && user.id === post.user_id && (
           <div className="mt-8" ref={adoptionRequestsRef}>
-            <AdoptionRequestsList postId={parseInt(postId)} ownerId={user.id} />
+            <AdoptionRequestsList postId={numericPostId} ownerId={user.id} />
           </div>
         )}
       </div>

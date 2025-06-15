@@ -10,7 +10,7 @@ import type { CSSProperties } from 'react';
 const Navbar = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const { signInWithGoogle, signOut, user } = useAuth();
+  const { signOut, user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -123,18 +123,30 @@ const Navbar = () => {
                 {/* Chat */}
                 <ChatBadge />
 
-                {/* Avatar Dropdown */}
+                {/* Avatar and Name Dropdown */}
                 <div className="relative">
                   <button
                     onClick={() => setMenuOpen((open) => !open)}
-                    className="focus:outline-none group"
+                    className="flex items-center space-x-2 focus:outline-none group hover:bg-violet-50 px-3 py-2 rounded-xl transition-colors"
                   >
-                    <div className="absolute -inset-0.5 bg-gradient-to-r from-violet-500 to-blue-500 rounded-full opacity-75 group-hover:opacity-100 transition duration-200 blur"></div>
-                    <img
-                      src={user.user_metadata.avatar_url}
-                      alt="User Avatar"
-                      className="relative w-10 h-10 rounded-full object-cover transform transition duration-200 group-hover:scale-105 border-2 border-white"
-                    />
+                    <span className="text-violet-800 font-medium font-['Poppins']">
+                      {user.user_metadata.full_name || user.email}
+                    </span>
+                    <svg
+                      className={`w-4 h-4 text-violet-600 transition-transform duration-200 ${
+                        menuOpen ? 'rotate-180' : ''
+                      }`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
                   </button>
                   {menuOpen && (
                     <div
@@ -164,11 +176,10 @@ const Navbar = () => {
                     </div>
                   )}
                 </div>
-                <span className="text-violet-800 font-medium font-['Poppins']">{user.user_metadata.full_name || user.email}</span>
               </div>
             ) : (
               <button
-                onClick={signInWithGoogle}
+                onClick={() => navigate("/login")}
                 className="bg-gradient-to-r from-violet-500 to-blue-500 hover:from-violet-600 hover:to-blue-600 text-white px-5 py-2 rounded-xl font-medium transform hover:scale-105 transition-all duration-200 shadow-md hover:shadow-lg flex items-center gap-2 font-['Poppins']"
               >
                 <FaPaw />
@@ -271,7 +282,7 @@ const Navbar = () => {
             ) : (
               <button
                 onClick={() => {
-                  signInWithGoogle();
+                  navigate("/login");
                   setMenuOpen(false);
                 }}
                 className="mx-4 my-2 bg-gradient-to-r from-violet-500 to-blue-500 hover:from-violet-600 hover:to-blue-600 text-white px-4 py-3 rounded-xl font-medium transition-all duration-200 shadow-md hover:shadow-lg flex items-center justify-center gap-2 font-['Poppins']"
