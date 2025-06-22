@@ -1,32 +1,42 @@
-import { ChangeEvent, useState, useEffect } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { ChangeEvent, useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { supabase } from "../supabase-client";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { FaImage, FaPaw, FaMapMarkerAlt, FaRuler, FaCalendarAlt, FaCheck, FaStethoscope, FaHeart, FaUsers, FaTrash } from "react-icons/fa";
-import { Community, fetchCommunities } from "./CommunityList";
-import { useQuery as useReactQuery } from '@tanstack/react-query';
+import {
+  FaImage,
+  FaPaw,
+  FaMapMarkerAlt,
+  FaRuler,
+  FaCalendarAlt,
+  FaCheck,
+  FaStethoscope,
+  FaHeart,
+  FaTrash,
+  FaPlus,
+  FaUpload,
+  FaCamera,
+  FaFileUpload,
+} from "react-icons/fa";
+// import { Community, fetchCommunities } from "./CommunityList";
 
 interface PostInput {
   name: string;
   content: string;
   avatar_url: string | null;
-  community_id?: number | null;
   user_id?: string | null;
   age?: number;
   breed?: string;
   vaccination_status?: boolean;
   location?: string;
-  size?: 'Small' | 'Medium' | 'Large' | 'Extra Large';
+  size?: "Small" | "Medium" | "Large" | "Extra Large";
   temperament?: string[];
   health_info?: string;
-  status?: 'Available' | 'Pending' | 'Adopted';
-  additional_photos?: string[];
 }
 
 const createPost = async (
-  post: PostInput, 
-  imageFile: File, 
+  post: PostInput,
+  imageFile: File,
   additionalFiles: File[],
   vaccinationProofFile: File | null
 ) => {
@@ -44,9 +54,11 @@ const createPost = async (
     .getPublicUrl(filePath);
 
   // Upload vaccination proof if provided and update health_info
-  let updatedHealthInfo = post.health_info || '';
+  let updatedHealthInfo = post.health_info || "";
   if (vaccinationProofFile) {
-    const vaccinationFilePath = `vaccination-proof-${post.name}-${Date.now()}-${vaccinationProofFile.name}`;
+    const vaccinationFilePath = `vaccination-proof-${post.name}-${Date.now()}-${
+      vaccinationProofFile.name
+    }`;
     const { error: vaccinationUploadError } = await supabase.storage
       .from("post-images")
       .upload(vaccinationFilePath, vaccinationProofFile);
@@ -80,12 +92,11 @@ const createPost = async (
 
   const { data, error } = await supabase
     .from("posts")
-    .insert({ 
+    .insert({
       name: post.name,
       content: post.content,
       image_url: publicURLData.publicUrl,
       avatar_url: post.avatar_url,
-      community_id: post.community_id,
       age: post.age,
       breed: post.breed,
       vaccination_status: post.vaccination_status,
@@ -94,25 +105,14 @@ const createPost = async (
       size: post.size,
       temperament: post.temperament,
       health_info: updatedHealthInfo.trim(),
-      status: post.status || 'Available',
-      additional_photos: additionalPhotosUrls
+      status: "pending",
+      additional_photos: additionalPhotosUrls,
     })
-    .select('*')
+    .select("*")
     .single();
 
   if (error) throw new Error(error?.message);
 
-  return data;
-};
-
-// Fetch user data for default location
-const fetchUserData = async (userId: string) => {
-  const { data, error } = await supabase
-    .from('users')
-    .select('location')
-    .eq('user_id', userId)
-    .maybeSingle();
-  if (error) throw error;
   return data;
 };
 
@@ -121,53 +121,38 @@ export const CreatePost = () => {
   const [content, setContent] = useState<string>("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [additionalFiles, setAdditionalFiles] = useState<File[]>([]);
-  const [vaccinationProofFile, setVaccinationProofFile] = useState<File | null>(null);
+  const [vaccinationProofFile, setVaccinationProofFile] = useState<File | null>(
+    null
+  );
   const [preview, setPreview] = useState<string | null>(null);
   const [additionalPreviews, setAdditionalPreviews] = useState<string[]>([]);
-  const [vaccinationPreview, setVaccinationPreview] = useState<string | null>(null);
-  const [communityId, setCommunityId] = useState<number | null>(null);
+  const [vaccinationPreview, setVaccinationPreview] = useState<string | null>(
+    null
+  );
   const [age, setAge] = useState<string>("");
   const [breed, setBreed] = useState<string>("");
   const [vaccinationStatus, setVaccinationStatus] = useState<boolean>(false);
   const [location, setLocation] = useState<string>("");
-  const [size, setSize] = useState<'Small' | 'Medium' | 'Large' | 'Extra Large'>('Medium');
+  const [size, setSize] = useState<
+    "Small" | "Medium" | "Large" | "Extra Large"
+  >("Medium");
   const [temperament, setTemperament] = useState<string[]>([]);
   const [healthInfo, setHealthInfo] = useState<string>("");
-  const [status, setStatus] = useState<'Available' | 'Pending' | 'Adopted'>('Available');
-  
-  const { user } = useAuth();
 
-  const { data: communities } = useQuery<Community[], Error>({
-    queryKey: ["communities"],
-    queryFn: fetchCommunities,
-  }); 
+  const { user } = useAuth();
 
   const navigate = useNavigate();
 
-  // Fetch userData for default location
-  const { data: userData } = useReactQuery({
-    queryKey: ["userData", user?.id],
-    queryFn: () => user && fetchUserData(user.id),
-    enabled: !!user,
-  });
-
-  // Set default location if userData.location exists and location is empty
-  useEffect(() => {
-    if (userData && userData.location && !location) {
-      setLocation(userData.location);
-    }
-  }, [userData, location]);
-
   const { mutate, isPending, isError } = useMutation({
-    mutationFn: (data: { 
-      post: PostInput; 
-      imageFile: File; 
+    mutationFn: (data: {
+      post: PostInput;
+      imageFile: File;
       additionalFiles: File[];
       vaccinationProofFile: File | null;
     }) =>
       createPost(
-        data.post, 
-        data.imageFile, 
+        data.post,
+        data.imageFile,
         data.additionalFiles,
         data.vaccinationProofFile
       ),
@@ -185,10 +170,9 @@ export const CreatePost = () => {
       setBreed("");
       setVaccinationStatus(false);
       setLocation("");
-      setSize('Medium');
+      setSize("Medium");
       setTemperament([]);
       setHealthInfo("");
-      setStatus('Available');
 
       // Redirect to home page
       setTimeout(() => {
@@ -215,7 +199,6 @@ export const CreatePost = () => {
         name,
         content,
         avatar_url: user?.user_metadata.avatar_url || null,
-        community_id: communityId,
         user_id: user.id,
         age: age ? parseInt(age) : undefined,
         breed,
@@ -224,7 +207,6 @@ export const CreatePost = () => {
         size,
         temperament,
         health_info: healthInfo,
-        status,
       },
       imageFile: selectedFile,
       additionalFiles,
@@ -250,32 +232,21 @@ export const CreatePost = () => {
     if (e.target.files) {
       const files = Array.from(e.target.files);
       setAdditionalFiles(files);
-      const previews = files.map(file => URL.createObjectURL(file));
+      const previews = files.map((file) => URL.createObjectURL(file));
       setAdditionalPreviews(previews);
     }
   };
 
   const handleTemperamentChange = (e: ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    setTemperament(value.split(',').map(item => item.trim()));
-  };
-
-  const handleCommunityChange = (e: ChangeEvent<HTMLSelectElement>) => {
-    const value = e.target.value;
-    setCommunityId(value ? Number(value) : null);
+    setTemperament(value.split(",").map((item) => item.trim()));
   };
 
   const sizeOptions = [
-    { value: 'Small', label: 'Small (0-15 lbs)' },
-    { value: 'Medium', label: 'Medium (16-40 lbs)' },
-    { value: 'Large', label: 'Large (41-100 lbs)' },
-    { value: 'Extra Large', label: 'Extra Large (100+ lbs)' }
-  ];
-
-  const statusOptions = [
-    { value: 'Available', label: 'Available - Ready for Adoption' },
-    { value: 'Pending', label: 'Pending - In Process' },
-    { value: 'Adopted', label: 'Adopted - Found Forever Home' }
+    { value: "Small", label: "Small (0-15 lbs)" },
+    { value: "Medium", label: "Medium (16-40 lbs)" },
+    { value: "Large", label: "Large (41-100 lbs)" },
+    { value: "Extra Large", label: "Extra Large (100+ lbs)" },
   ];
 
   // --- Add delete handlers ---
@@ -295,362 +266,417 @@ export const CreatePost = () => {
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="max-w-4xl mx-auto space-y-6"
-    >
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Left column - Basic Info */}
-        <div className="space-y-6">
-          <div className="group">
-            <label htmlFor="name" className=" mb-2 font-medium text-violet-700 font-['Poppins'] flex items-center gap-2">
-              <FaPaw className="text-violet-500" />
-              Pet Name
-            </label>
-            <input
-              type="text"
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full border border-violet-100 bg-violet-50 p-3 rounded-xl text-violet-800 focus:ring-2 focus:ring-violet-400 focus:border-transparent transition-all group-hover:border-violet-300 font-['Poppins']"
-              required
-              placeholder="Enter your pet's name"
-            />
+    <div className="min-h-screen bg-gradient-to-br from-violet-50 via-white to-pink-50 py-16 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-12">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-violet-500 via-purple-500 to-pink-500 rounded-full shadow-lg mb-6">
+            <FaPaw className="text-white text-2xl" />
           </div>
-
-          <div className="group">
-            <label htmlFor="content" className=" mb-2 font-medium text-violet-700 font-['Poppins'] flex items-center gap-2">
-              <FaHeart className="text-violet-500" />
-              Description
-            </label>
-            <textarea
-              id="content"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              className="w-full border border-violet-100 bg-violet-50 p-3 rounded-xl text-violet-800 focus:ring-2 focus:ring-violet-400 focus:border-transparent transition-all group-hover:border-violet-300 font-['Poppins']"
-              rows={5}
-              required
-              placeholder="Describe your pet's personality, story, and why they need a home..."
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="group">
-              <label htmlFor="age" className=" mb-2 font-medium text-violet-700 font-['Poppins'] flex items-center gap-2">
-                <FaCalendarAlt className="text-violet-500" />
-                Age (months)
-              </label>
-              <input
-                type="number"
-                id="age"
-                value={age}
-                onChange={(e) => setAge(e.target.value)}
-                className="w-full border border-violet-100 bg-violet-50 p-3 rounded-xl text-violet-800 focus:ring-2 focus:ring-violet-400 focus:border-transparent transition-all group-hover:border-violet-300 font-['Poppins']"
-                placeholder="0"
-              />
-            </div>
-
-            <div className="group">
-              <label htmlFor="breed" className=" mb-2 font-medium text-violet-700 font-['Poppins'] flex items-center gap-2">
-                <FaPaw className="text-violet-500" />
-                Breed
-              </label>
-              <input
-                type="text"
-                id="breed"
-                value={breed}
-                onChange={(e) => setBreed(e.target.value)}
-                className="w-full border border-violet-100 bg-violet-50 p-3 rounded-xl text-violet-800 focus:ring-2 focus:ring-violet-400 focus:border-transparent transition-all group-hover:border-violet-300 font-['Poppins']"
-                placeholder="Golden Retriever"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="group">
-              <label htmlFor="location" className=" mb-2 font-medium text-violet-700 font-['Poppins'] flex items-center gap-2">
-                <FaMapMarkerAlt className="text-violet-500" />
-                Location
-              </label>
-              <input
-                type="text"
-                id="location"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                className="w-full border border-violet-100 bg-violet-50 p-3 rounded-xl text-violet-800 focus:ring-2 focus:ring-violet-400 focus:border-transparent transition-all group-hover:border-violet-300 font-['Poppins']"
-                placeholder="City"
-              />
-            </div>
-
-            <div className="group">
-              <label htmlFor="size" className="mb-2 font-medium text-violet-700 font-['Poppins'] flex items-center gap-2">
-                <FaRuler className="text-violet-500" />
-                Size
-              </label>
-              <select
-                id="size"
-                value={size}
-                onChange={(e) => setSize(e.target.value as 'Small' | 'Medium' | 'Large' | 'Extra Large')}
-                className="w-full border border-violet-100 bg-violet-50 p-3 rounded-xl text-violet-800 focus:ring-2 focus:ring-violet-400 focus:border-transparent transition-all group-hover:border-violet-300 font-['Poppins']"
-              >
-                {sizeOptions.map((option) => (
-                  <option
-                    key={option.value}
-                    value={option.value}
-                  >
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="group">
-            <label htmlFor="status" className="mb-2 font-medium text-violet-700 font-['Poppins'] flex items-center gap-2">
-              <FaCheck className="text-violet-500" />
-              Status
-            </label>
-            <select
-              id="status"
-              value={status}
-              onChange={(e) => setStatus(e.target.value as 'Available' | 'Pending' | 'Adopted')}
-              className="w-full border border-violet-100 bg-violet-50 p-3 rounded-xl text-violet-800 focus:ring-2 focus:ring-violet-400 focus:border-transparent transition-all group-hover:border-violet-300 font-['Poppins']"
-            >
-              {statusOptions.map((option) => (
-                <option
-                  key={option.value}
-                  value={option.value}
-                >
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-violet-600 via-purple-600 to-pink-600 text-transparent bg-clip-text font-['Quicksand'] mb-4">
+            Create Pet Post
+          </h1>
+          <p className="text-lg text-gray-600 font-['Poppins'] max-w-2xl mx-auto">
+            Share your beloved pet's story and help them find their perfect
+            forever home
+          </p>
         </div>
 
-        {/* Right column - Health & Images */}
-        <div className="space-y-6">
-          <div className="group">
-            <label htmlFor="temperament" className="mb-2 font-medium text-violet-700 font-['Poppins'] flex items-center gap-2">
-              <FaHeart className="text-violet-500" />
-              Temperament (comma-separated)
-            </label>
-            <input
-              type="text"
-              id="temperament"
-              value={temperament.join(', ')}
-              onChange={handleTemperamentChange}
-              placeholder="Friendly, Playful, Calm"
-              className="w-full border border-violet-100 bg-violet-50 p-3 rounded-xl text-violet-800 focus:ring-2 focus:ring-violet-400 focus:border-transparent transition-all group-hover:border-violet-300 font-['Poppins']"
-            />
-          </div>
+        <form
+          onSubmit={handleSubmit}
+          className="grid grid-cols-1 lg:grid-cols-5 gap-8"
+        >
+          {/* Left Column - Images & Health Docs */}
+          <div className="lg:col-span-2 space-y-8">
+            {/* Image Upload Section */}
+            <div className="bg-white/90 backdrop-blur-sm rounded-3xl p-8 shadow-xl border border-violet-100 h-fit">
+              <h2 className="text-2xl font-bold text-violet-800 font-['Quicksand'] mb-8 flex items-center gap-3">
+                <FaCamera className="text-violet-500" />
+                Pet Photos
+              </h2>
 
-          <div className="group">
-            <label htmlFor="healthInfo" className="mb-2 font-medium text-violet-700 font-['Poppins'] flex items-center gap-2">
-              <FaStethoscope className="text-violet-500" />
-              Health Information
-            </label>
-            <textarea
-              id="healthInfo"
-              value={healthInfo}
-              onChange={(e) => setHealthInfo(e.target.value)}
-              className="w-full border border-violet-100 bg-violet-50 p-3 rounded-xl text-violet-800 focus:ring-2 focus:ring-violet-400 focus:border-transparent transition-all group-hover:border-violet-300 font-['Poppins']"
-              rows={3}
-              placeholder="Describe any health conditions, special needs, or medical history..."
-            />
-          </div>
+              <div className="space-y-8">
+                {/* Main Image */}
+                <div className="space-y-4">
+                  <label className="font-semibold text-violet-700 font-['Poppins'] flex items-center gap-2">
+                    <FaImage className="text-violet-500" />
+                    Main Pet Image
+                  </label>
+                  <input
+                    type="file"
+                    id="image"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="hidden"
+                    required
+                  />
+                  <div className="w-full flex items-center justify-center p-12 border-2 border-dashed border-violet-300 rounded-2xl cursor-pointer hover:bg-white/50 transition-all duration-300 bg-white/30 group">
+                    <label
+                      htmlFor="image"
+                      className="flex flex-col items-center cursor-pointer"
+                    >
+                      <FaCamera className="text-5xl text-violet-500 group-hover:scale-110 transition-transform duration-300" />
+                      <span className="text-lg text-violet-600 mt-4 text-center font-['Poppins'] font-medium">
+                        Click to upload main image
+                      </span>
+                    </label>
+                  </div>
+                  {preview && (
+                    <div className="relative group">
+                      <img
+                        src={preview}
+                        alt="Pet Preview"
+                        className="w-full h-80 object-cover rounded-2xl border-2 border-violet-200 shadow-lg"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleDeleteMainImage}
+                        className="absolute top-4 right-4 bg-red-500 hover:bg-red-600 rounded-full p-3 shadow-lg text-white transition-all duration-300 transform hover:scale-110"
+                        aria-label="Delete main image"
+                      >
+                        <FaTrash size={18} />
+                      </button>
+                    </div>
+                  )}
+                </div>
 
-          <div className="p-4 bg-violet-50 rounded-xl border border-violet-100">
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="vaccinationStatus"
-                checked={vaccinationStatus}
-                onChange={(e) => setVaccinationStatus(e.target.checked)}
-                className="rounded border-violet-300 text-violet-600 focus:ring-violet-400"
-              />
-              <label htmlFor="vaccinationStatus" className="font-medium text-violet-700 font-['Poppins']">
-                Vaccinated
-              </label>
+                {/* Additional Images */}
+                <div className="space-y-4">
+                  <label className="font-semibold text-violet-700 font-['Poppins'] flex items-center gap-2">
+                    <FaPlus className="text-violet-500" />
+                    Additional Images (optional)
+                  </label>
+                  <input
+                    type="file"
+                    id="additionalImages"
+                    accept="image/*"
+                    multiple
+                    onChange={handleAdditionalFilesChange}
+                    className="hidden"
+                  />
+                  <div className="w-full flex items-center justify-center p-12 border-2 border-dashed border-violet-300 rounded-2xl cursor-pointer hover:bg-white/50 transition-all duration-300 bg-white/30 group">
+                    <label
+                      htmlFor="additionalImages"
+                      className="flex flex-col items-center cursor-pointer"
+                    >
+                      <FaImage className="text-5xl text-violet-500 group-hover:scale-110 transition-transform duration-300" />
+                      <span className="text-lg text-violet-600 mt-4 text-center font-['Poppins'] font-medium">
+                        Click to upload additional images
+                      </span>
+                    </label>
+                  </div>
+                  {additionalPreviews.length > 0 && (
+                    <div className="grid grid-cols-2 gap-4">
+                      {additionalPreviews.map((preview, index) => (
+                        <div key={index} className="relative group">
+                          <img
+                            src={preview}
+                            alt={`Additional Pet Image ${index + 1}`}
+                            className="w-full h-40 object-cover rounded-2xl border-2 border-violet-200 shadow-lg"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteAdditionalImage(index)}
+                            className="absolute top-3 right-3 bg-red-500 hover:bg-red-600 rounded-full p-2 shadow-lg text-white transition-all duration-300 transform hover:scale-110"
+                            aria-label={`Delete additional image ${index + 1}`}
+                          >
+                            <FaTrash size={16} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
 
-            {vaccinationStatus && (
-              <div className="mt-4">
-                <label htmlFor="vaccinationProof" className="mb-2 font-medium text-violet-700 font-['Poppins'] text-sm flex items-center gap-2">
-                  Upload Vaccination Proof
-                </label>
-                <input
-                  type="file"
-                  id="vaccinationProof"
-                  accept="image/*"
-                  onChange={handleVaccinationProofChange}
-                  className="hidden"
-                  required
-                />
-                <div className="w-full flex items-center justify-center p-4 border-2 border-dashed border-violet-200 rounded-lg cursor-pointer hover:bg-violet-100/50 transition bg-white">
-                  <label htmlFor="vaccinationProof" className="flex flex-col items-center cursor-pointer">
-                    <FaImage className="text-3xl text-violet-400" />
-                    <span className="text-sm text-violet-500 mt-2 text-center font-['Poppins']">
-                      Click to upload vaccination proof
-                    </span>
+            {/* Health Docs */}
+            <div className="bg-white/90 backdrop-blur-sm rounded-3xl p-8 shadow-xl border border-violet-100 h-fit">
+              <h2 className="text-2xl font-bold text-violet-800 font-['Quicksand'] mb-8 flex items-center gap-3">
+                <FaStethoscope className="text-violet-500" />
+                Health & Vaccination
+              </h2>
+              <div className="p-8 bg-gradient-to-br from-violet-50 to-pink-50 rounded-2xl border-2 border-violet-200">
+                <div className="flex items-center space-x-3 mb-6">
+                  <input
+                    type="checkbox"
+                    id="vaccinationStatus"
+                    checked={vaccinationStatus}
+                    onChange={(e) => setVaccinationStatus(e.target.checked)}
+                    className="w-6 h-6 rounded border-violet-300 text-violet-600 focus:ring-violet-400 focus:ring-2"
+                  />
+                  <label
+                    htmlFor="vaccinationStatus"
+                    className="font-semibold text-violet-700 font-['Poppins'] flex items-center gap-2 text-lg"
+                  >
+                    <FaCheck className="text-green-500" />
+                    Vaccinated
                   </label>
                 </div>
-                {vaccinationPreview && (
-                  <div className="mt-2 relative">
-                    <img
-                      src={vaccinationPreview}
-                      alt="Vaccination Proof"
-                      className="max-w-full h-40 object-cover rounded-lg border border-violet-200"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleDeleteVaccinationProof}
-                      className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 rounded-full p-1 shadow text-white text-xs flex items-center justify-center"
-                      aria-label="Delete vaccination proof"
+
+                {vaccinationStatus && (
+                  <div className="space-y-6">
+                    <label
+                      htmlFor="vaccinationProof"
+                      className="font-semibold text-violet-700 font-['Poppins'] text-lg flex items-center gap-2"
                     >
-                      <FaTrash size={14} />
-                    </button>
+                      <FaFileUpload className="text-violet-500" />
+                      Upload Vaccination Proof
+                    </label>
+                    <input
+                      type="file"
+                      id="vaccinationProof"
+                      accept="image/*"
+                      onChange={handleVaccinationProofChange}
+                      className="hidden"
+                      required
+                    />
+                    <div className="w-full flex items-center justify-center p-8 border-2 border-dashed border-violet-300 rounded-2xl cursor-pointer hover:bg-white/50 transition-all duration-300 bg-white/30 group">
+                      <label
+                        htmlFor="vaccinationProof"
+                        className="flex flex-col items-center cursor-pointer"
+                      >
+                        <FaUpload className="text-4xl text-violet-500 group-hover:scale-110 transition-transform duration-300" />
+                        <span className="text-lg text-violet-600 mt-4 text-center font-['Poppins'] font-medium">
+                          Click to upload vaccination proof
+                        </span>
+                      </label>
+                    </div>
+                    {vaccinationPreview && (
+                      <div className="relative group">
+                        <img
+                          src={vaccinationPreview}
+                          alt="Vaccination Proof"
+                          className="w-full h-48 object-cover rounded-2xl border-2 border-violet-200 shadow-lg"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleDeleteVaccinationProof}
+                          className="absolute top-4 right-4 bg-red-500 hover:bg-red-600 rounded-full p-3 shadow-lg text-white transition-all duration-300 transform hover:scale-110"
+                          aria-label="Delete vaccination proof"
+                        >
+                          <FaTrash size={18} />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
-            )}
-          </div>
-
-          <div className="group">
-            <label className="mb-2 font-medium text-violet-700 font-['Poppins'] flex items-center gap-2">
-              <FaUsers className="text-violet-500" />
-              Select Community
-            </label>
-            <select
-              id="community"
-              onChange={handleCommunityChange}
-              className="w-full border border-violet-100 bg-violet-50 p-3 rounded-xl text-violet-800 focus:ring-2 focus:ring-violet-400 focus:border-transparent transition-all group-hover:border-violet-300 font-['Poppins']"
-            >
-              <option value="">
-                -- Choose a Community --
-              </option>
-              {communities?.map((community) => (
-                <option
-                  key={community.id}
-                  value={community.id}
-                >
-                  {community.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="group">
-            <label htmlFor="image" className="mb-2 font-medium text-violet-700 font-['Poppins'] flex items-center gap-2">
-              <FaImage className="text-violet-500" />
-              Main Pet Image
-            </label>
-            <input
-              type="file"
-              id="image"
-              accept="image/*"
-              onChange={handleFileChange}
-              className="hidden"
-              required
-            />
-            <div className="w-full flex items-center justify-center p-6 border-2 border-dashed border-violet-200 rounded-lg cursor-pointer hover:bg-violet-100/50 transition bg-white">
-              <label htmlFor="image" className="flex flex-col items-center cursor-pointer">
-                <FaImage className="text-4xl text-violet-400" />
-                <span className="text-sm text-violet-500 mt-2 text-center font-['Poppins']">
-                  Click to upload main image
-                </span>
-              </label>
             </div>
-            {preview && (
-              <div className="mt-3 relative">
-                <img
-                  src={preview}
-                  alt="Pet Preview"
-                  className="w-full h-56 object-cover rounded-lg border border-violet-200"
-                />
-                <button
-                  type="button"
-                  onClick={handleDeleteMainImage}
-                  className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 rounded-full p-1 shadow text-white text-xs flex items-center justify-center"
-                  aria-label="Delete main image"
-                >
-                  <FaTrash size={14} />
-                </button>
-              </div>
-            )}
           </div>
-        </div>
-      </div>
 
-      <div className="group mt-8">
-        <label htmlFor="additionalImages" className="mb-2 font-medium text-violet-700 font-['Poppins'] flex items-center gap-2">
-          <FaImage className="text-violet-500" />
-          Additional Images (optional)
-        </label>
-        <input
-          type="file"
-          id="additionalImages"
-          accept="image/*"
-          multiple
-          onChange={handleAdditionalFilesChange}
-          className="hidden"
-        />
-        <div className="w-full flex items-center justify-center p-4 border-2 border-dashed border-violet-200 rounded-lg cursor-pointer hover:bg-violet-100/50 transition bg-white">
-          <label htmlFor="additionalImages" className="flex flex-col items-center cursor-pointer">
-            <FaImage className="text-3xl text-violet-400" />
-            <span className="text-sm text-violet-500 mt-2 text-center font-['Poppins']">
-              Click to upload additional images
-            </span>
-          </label>
-        </div>
-        {additionalPreviews.length > 0 && (
-          <div className="mt-3 grid grid-cols-3 gap-3">
-            {additionalPreviews.map((preview, index) => (
-              <div key={index} className="relative">
-                <img
-                  src={preview}
-                  alt={`Additional Pet Image ${index + 1}`}
-                  className="w-full h-32 object-cover rounded-lg border border-violet-200"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleDeleteAdditionalImage(index)}
-                  className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 rounded-full p-1 shadow text-white text-xs flex items-center justify-center"
-                  aria-label={`Delete additional image ${index + 1}`}
-                >
-                  <FaTrash size={14} />
-                </button>
+          {/* Right Column - Text Inputs */}
+          <div className="lg:col-span-3 space-y-8">
+            {/* Basic Info */}
+            <div className="bg-white/90 backdrop-blur-sm rounded-3xl p-8 shadow-xl border border-violet-100">
+              <h2 className="text-2xl font-bold text-violet-800 font-['Quicksand'] mb-8 flex items-center gap-3">
+                <FaHeart className="text-violet-500" />
+                Basic Information
+              </h2>
+
+              <div className="space-y-8">
+                <div className="group">
+                  <label
+                    htmlFor="name"
+                    className="mb-4 font-semibold text-violet-700 font-['Poppins'] flex items-center gap-2 text-lg"
+                  >
+                    <FaPaw className="text-violet-500" />
+                    Pet Name
+                  </label>
+                  <input
+                    type="text"
+                    id="name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full border-2 border-violet-200 bg-white/80 p-5 rounded-2xl text-violet-800 focus:ring-4 focus:ring-violet-200 focus:border-violet-400 transition-all duration-300 group-hover:border-violet-300 font-['Poppins'] placeholder-violet-400 text-lg"
+                    required
+                    placeholder="Enter your pet's name"
+                  />
+                </div>
+
+                <div className="group">
+                  <label
+                    htmlFor="content"
+                    className="mb-4 font-semibold text-violet-700 font-['Poppins'] flex items-center gap-2 text-lg"
+                  >
+                    <FaHeart className="text-violet-500" />
+                    Description
+                  </label>
+                  <textarea
+                    id="content"
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                    className="w-full border-2 border-violet-200 bg-white/80 p-5 rounded-2xl text-violet-800 focus:ring-4 focus:ring-violet-200 focus:border-violet-400 transition-all duration-300 group-hover:border-violet-300 font-['Poppins'] placeholder-violet-400 resize-none text-lg"
+                    rows={6}
+                    required
+                    placeholder="Describe your pet's personality, story, and why they need a home..."
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="group">
+                    <label
+                      htmlFor="age"
+                      className="mb-4 font-semibold text-violet-700 font-['Poppins'] flex items-center gap-2 text-lg"
+                    >
+                      <FaCalendarAlt className="text-violet-500" />
+                      Age (months)
+                    </label>
+                    <input
+                      type="number"
+                      id="age"
+                      value={age}
+                      onChange={(e) => setAge(e.target.value)}
+                      className="w-full border-2 border-violet-200 bg-white/80 p-5 rounded-2xl text-violet-800 focus:ring-4 focus:ring-violet-200 focus:border-violet-400 transition-all duration-300 group-hover:border-violet-300 font-['Poppins'] placeholder-violet-400 text-lg"
+                      placeholder="0"
+                    />
+                  </div>
+
+                  <div className="group">
+                    <label
+                      htmlFor="breed"
+                      className="mb-4 font-semibold text-violet-700 font-['Poppins'] flex items-center gap-2 text-lg"
+                    >
+                      <FaPaw className="text-violet-500" />
+                      Breed
+                    </label>
+                    <input
+                      type="text"
+                      id="breed"
+                      value={breed}
+                      onChange={(e) => setBreed(e.target.value)}
+                      className="w-full border-2 border-violet-200 bg-white/80 p-5 rounded-2xl text-violet-800 focus:ring-4 focus:ring-violet-200 focus:border-violet-400 transition-all duration-300 group-hover:border-violet-300 font-['Poppins'] placeholder-violet-400 text-lg"
+                      placeholder="Golden Retriever"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="group">
+                    <label
+                      htmlFor="location"
+                      className="mb-4 font-semibold text-violet-700 font-['Poppins'] flex items-center gap-2 text-lg"
+                    >
+                      <FaMapMarkerAlt className="text-violet-500" />
+                      Location
+                    </label>
+                    <input
+                      type="text"
+                      id="location"
+                      value={location}
+                      onChange={(e) => setLocation(e.target.value)}
+                      className="w-full border-2 border-violet-200 bg-white/80 p-5 rounded-2xl text-violet-800 focus:ring-4 focus:ring-violet-200 focus:border-violet-400 transition-all duration-300 group-hover:border-violet-300 font-['Poppins'] placeholder-violet-400 text-lg"
+                      placeholder="City"
+                    />
+                  </div>
+
+                  <div className="group">
+                    <label
+                      htmlFor="size"
+                      className="mb-4 font-semibold text-violet-700 font-['Poppins'] flex items-center gap-2 text-lg"
+                    >
+                      <FaRuler className="text-violet-500" />
+                      Size
+                    </label>
+                    <select
+                      id="size"
+                      value={size}
+                      onChange={(e) =>
+                        setSize(
+                          e.target.value as
+                            | "Small"
+                            | "Medium"
+                            | "Large"
+                            | "Extra Large"
+                        )
+                      }
+                      className="w-full border-2 border-violet-200 bg-white/80 p-5 rounded-2xl text-violet-800 focus:ring-4 focus:ring-violet-200 focus:border-violet-400 transition-all duration-300 group-hover:border-violet-300 font-['Poppins'] text-lg"
+                    >
+                      {sizeOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+            </div>
 
-      <div className="flex justify-center mt-8">
-        <button
-          type="submit"
-          disabled={isPending}
-          className="px-8 py-3 bg-gradient-to-r from-violet-500 to-blue-500 text-white rounded-xl font-medium hover:from-violet-600 hover:to-blue-600 transform hover:scale-105 transition-all duration-300 shadow-md hover:shadow-lg flex items-center justify-center gap-3 font-['Poppins'] w-full max-w-md"
-        >
-          {isPending ? (
-            <>
-              <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-r-2 border-white"></div>
-              <span>Creating Post...</span>
-            </>
-          ) : (
-            <>
-              <FaPaw className="text-xl" />
-              <span>Create Pet Post</span>
-            </>
+            {/* Additional Details */}
+            <div className="bg-white/90 backdrop-blur-sm rounded-3xl p-8 shadow-xl border border-violet-100">
+              <h2 className="text-2xl font-bold text-violet-800 font-['Quicksand'] mb-8 flex items-center gap-3">
+                <FaStethoscope className="text-violet-500" />
+                Additional Details
+              </h2>
+              <div className="space-y-8">
+                <div className="group">
+                  <label
+                    htmlFor="temperament"
+                    className="mb-4 font-semibold text-violet-700 font-['Poppins'] flex items-center gap-2 text-lg"
+                  >
+                    <FaHeart className="text-violet-500" />
+                    Temperament
+                  </label>
+                  <input
+                    type="text"
+                    id="temperament"
+                    value={temperament.join(", ")}
+                    onChange={handleTemperamentChange}
+                    placeholder="Friendly, Playful, Calm"
+                    className="w-full border-2 border-violet-200 bg-white/80 p-5 rounded-2xl text-violet-800 focus:ring-4 focus:ring-violet-200 focus:border-violet-400 transition-all duration-300 group-hover:border-violet-300 font-['Poppins'] placeholder-violet-400 text-lg"
+                  />
+                </div>
+
+                <div className="group">
+                  <label
+                    htmlFor="healthInfo"
+                    className="mb-4 font-semibold text-violet-700 font-['Poppins'] flex items-center gap-2 text-lg"
+                  >
+                    <FaStethoscope className="text-violet-500" />
+                    Health Information
+                  </label>
+                  <textarea
+                    id="healthInfo"
+                    value={healthInfo}
+                    onChange={(e) => setHealthInfo(e.target.value)}
+                    className="w-full border-2 border-violet-200 bg-white/80 p-5 rounded-2xl text-violet-800 focus:ring-4 focus:ring-violet-200 focus:border-violet-400 transition-all duration-300 group-hover:border-violet-300 font-['Poppins'] placeholder-violet-400 resize-none text-lg"
+                    rows={4}
+                    placeholder="Describe any health conditions, special needs, or medical history..."
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Submit Button */}
+          <div className="lg:col-span-5 flex justify-center">
+            <button
+              type="submit"
+              disabled={isPending}
+              className="px-16 py-6 bg-gradient-to-r from-violet-500 via-purple-500 to-pink-500 hover:from-violet-600 hover:via-purple-600 hover:to-pink-600 text-white rounded-3xl font-bold transform hover:scale-105 transition-all duration-300 shadow-2xl hover:shadow-3xl flex items-center justify-center gap-4 font-['Poppins'] w-full max-w-lg group text-xl"
+            >
+              {isPending ? (
+                <>
+                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-r-2 border-white"></div>
+                  <span>Creating Post...</span>
+                </>
+              ) : (
+                <>
+                  <FaPaw className="text-2xl group-hover:scale-110 transition-transform duration-300" />
+                  <span>Create Pet Post</span>
+                </>
+              )}
+            </button>
+          </div>
+
+          {isError && (
+            <div className="lg:col-span-5 mt-8 bg-red-50 border-2 border-red-200 text-red-600 p-8 rounded-3xl text-center font-['Poppins'] shadow-xl text-lg">
+              Error creating post. Please try again.
+            </div>
           )}
-        </button>
+        </form>
       </div>
-
-      {isError && (
-        <div className="mt-4 bg-red-50 border border-red-200 text-red-600 p-4 rounded-xl text-center font-['Poppins']">
-          Error creating post. Please try again.
-        </div>
-      )}
-    </form>
+    </div>
   );
 };

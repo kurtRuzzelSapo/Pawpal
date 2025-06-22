@@ -20,6 +20,8 @@ CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     user_id UUID NOT NULL,
+    full_name TEXT NOT NULL,
+    email TEXT NOT NULL,
     bio TEXT DEFAULT '',
     role TEXT DEFAULT 'user' CHECK (role IN ('user', 'vet', 'admin')),
     favorites TEXT[] DEFAULT ARRAY[]::TEXT[],
@@ -27,6 +29,15 @@ CREATE TABLE users (
     adoption_history TEXT[] DEFAULT ARRAY[]::TEXT[],
     location TEXT DEFAULT '',
     verified BOOLEAN DEFAULT FALSE,
+    -- Vet-specific fields
+    specialization TEXT,
+    license_number TEXT,
+    clinic_name TEXT,
+    clinic_address TEXT,
+    clinic_phone TEXT,
+    clinic_email TEXT,
+    working_hours JSONB,
+    services_offered TEXT[],
     UNIQUE(user_id),
     CONSTRAINT fk_user
         FOREIGN KEY (user_id)
@@ -41,6 +52,8 @@ ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Enable read access for own profile" ON users;
 DROP POLICY IF EXISTS "Enable update access for own profile" ON users;
 DROP POLICY IF EXISTS "Enable insert for registration" ON users;
+DROP POLICY IF EXISTS "Enable read access for vets" ON users;
+DROP POLICY IF EXISTS "Enable admin access" ON users;
 
 -- Create RLS policies
 CREATE POLICY "Enable read access for own profile"
@@ -54,45 +67,47 @@ CREATE POLICY "Enable update access for own profile"
 -- Allow insert during signup
 CREATE POLICY "Enable insert for registration"
     ON users FOR INSERT
-    WITH CHECK (true);  -- Allow all inserts, since we're using a trigger
+    WITH CHECK (true);
 
--- Create a function to handle user registration
-CREATE OR REPLACE FUNCTION handle_new_user() 
-RETURNS TRIGGER 
-SECURITY DEFINER SET search_path = public
-AS $$
-BEGIN
-    INSERT INTO public.users (
-        user_id,
-        bio,
-        role,
-        favorites,
-        is_shelter,
-        adoption_history,
-        location,
-        verified
-    ) VALUES (
-        NEW.id,  -- auth.users.id
-        '',      -- empty bio
-        'user',  -- default role
-        ARRAY[]::TEXT[],  -- empty favorites
-        FALSE,   -- not a shelter
-        ARRAY[]::TEXT[],  -- empty adoption history
-        '',      -- empty location
-        FALSE    -- not verified
+-- Allow public read access to vet profiles
+CREATE POLICY "Enable read access for vets"
+    ON users FOR SELECT
+    USING (role = 'vet');
+
+-- Allow admin users to access all data
+CREATE POLICY "Enable admin access"
+    ON users FOR ALL
+    USING (
+        EXISTS (
+            SELECT 1 FROM users
+            WHERE user_id = auth.uid()
+            AND role = 'admin'
+        )
     );
-    RETURN NEW;
-EXCEPTION
-    WHEN others THEN
-        RAISE LOG 'Error in handle_new_user: %', SQLERRM;
-        RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
 
--- Create a trigger to automatically create a user profile after signup
+-- Create function to handle new user creation
+CREATE OR REPLACE FUNCTION handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO public.users (user_id, full_name, email, role)
+    VALUES (NEW.id, NEW.raw_user_meta_data->>'full_name', NEW.email, 
+            CASE 
+                WHEN NEW.raw_user_meta_data->>'role' = 'vet' THEN 'vet'
+                WHEN NEW.raw_user_meta_data->>'role' = 'admin' THEN 'admin'
+                ELSE 'user'
+            END);
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Create trigger for new user creation
 CREATE TRIGGER on_auth_user_created
     AFTER INSERT ON auth.users
     FOR EACH ROW EXECUTE FUNCTION handle_new_user();
+
+-- Create index for faster queries
+CREATE INDEX idx_users_role ON users(role);
+CREATE INDEX idx_users_verified ON users(verified);
 
 -- Grant necessary permissions
 GRANT ALL ON TABLE users TO authenticated;
@@ -248,4 +263,61 @@ BEGIN
         AND (status_filter IS NULL OR p.status = status_filter)
     ORDER BY p.created_at DESC;
 END;
-$$ LANGUAGE plpgsql; 
+$$ LANGUAGE plpgsql;
+
+-- Post policies
+CREATE POLICY "Anyone can view posts"
+    ON post FOR SELECT
+    USING (true);
+
+CREATE POLICY "Authenticated users can create posts"
+    ON post FOR INSERT
+    TO authenticated
+    WITH CHECK (auth.uid() = user_id OR auth.uid() = auth_users_id);
+
+CREATE POLICY "Users can update their own posts"
+    ON post FOR UPDATE
+    TO authenticated
+    USING (auth.uid() = user_id OR auth.uid() = auth_users_id);
+
+CREATE POLICY "Users can delete their own posts"
+    ON post FOR DELETE
+    TO authenticated
+    USING (auth.uid() = user_id OR auth.uid() = auth_users_id);
+
+-- Allow admin users to access all posts
+CREATE POLICY "Enable admin access to posts"
+    ON post FOR ALL
+    USING (
+        EXISTS (
+            SELECT 1 FROM users
+            WHERE user_id = auth.uid()
+            AND role = 'admin'
+        )
+    );
+
+-- Communities policies
+CREATE POLICY "Anyone can view communities"
+    ON communities FOR SELECT
+    USING (true);
+
+CREATE POLICY "Authenticated users can create communities"
+    ON communities FOR INSERT
+    TO authenticated
+    WITH CHECK (true);
+
+CREATE POLICY "Creators can update their communities"
+    ON communities FOR UPDATE
+    TO authenticated
+    USING (creator_id = auth.uid());
+
+-- Allow admin users to access all communities
+CREATE POLICY "Enable admin access to communities"
+    ON communities FOR ALL
+    USING (
+        EXISTS (
+            SELECT 1 FROM users
+            WHERE user_id = auth.uid()
+            AND role = 'admin'
+        )
+    ); 

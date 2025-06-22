@@ -17,10 +17,24 @@ interface ApplicationInput {
   additional_info: string;
 }
 
-const createApplication = async (application: ApplicationInput) => {
+interface ApplicationResponse {
+  id: number;
+  post_id: number;
+  applicant_id: string;
+  home_situation: string;
+  experience: string;
+  why_this_pet: string;
+  additional_info: string;
+  created_at: string;
+}
+
+const createApplication = async (
+  application: ApplicationInput
+): Promise<ApplicationResponse[]> => {
   const { data, error } = await supabase
     .from("adoption_applications")
-    .insert(application);
+    .insert(application)
+    .select();
 
   if (error) throw new Error(error.message);
   return data;
@@ -35,7 +49,11 @@ export const AdoptionApplication = ({ petId, onClose }: Props) => {
     additional_info: "",
   });
 
-  const mutation: UseMutationResult<any, Error, ApplicationInput> = useMutation({
+  const mutation: UseMutationResult<
+    ApplicationResponse[],
+    Error,
+    ApplicationInput
+  > = useMutation({
     mutationFn: (data: ApplicationInput) => createApplication(data),
     onSuccess: () => {
       setTimeout(() => {
@@ -74,17 +92,15 @@ export const AdoptionApplication = ({ petId, onClose }: Props) => {
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold text-white">Adoption Application</h2>
-        <button
-          onClick={onClose}
-          className="text-gray-400 hover:text-white"
-        >
+        <button onClick={onClose} className="text-gray-400 hover:text-white">
           ✕
         </button>
       </div>
 
       {isSuccess ? (
         <div className="text-center text-green-400 p-4">
-          Your application has been submitted successfully! We will review it and get back to you soon.
+          Your application has been submitted successfully! We will review it
+          and get back to you soon.
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -180,4 +196,4 @@ export const AdoptionApplication = ({ petId, onClose }: Props) => {
       )}
     </div>
   );
-}; 
+};

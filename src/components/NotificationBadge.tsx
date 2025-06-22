@@ -14,12 +14,37 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import { AdoptionRequestDetails } from "./AdoptionRequestDetails";
 
+interface Notification {
+  id: number;
+  user_id: string;
+  type: string;
+  message: string;
+  read: boolean;
+  created_at: string;
+  link?: string;
+  post_id?: number;
+  requester_id?: string;
+}
+
+interface EnhancedNotification extends Notification {
+  requestId?: number;
+  requestStatus?: string;
+  requestDate?: string;
+  petName?: string;
+  petImage?: string;
+  petBreed?: string;
+  petAge?: number;
+  requesterName?: string;
+}
+
 export const NotificationBadge: React.FC = () => {
   const { user } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
-  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [enhancedNotifications, setEnhancedNotifications] = useState<any[]>([]);
+  const [enhancedNotifications, setEnhancedNotifications] = useState<
+    EnhancedNotification[]
+  >([]);
   const [loading, setLoading] = useState(false);
   const [selectedRequestId, setSelectedRequestId] = useState<number | null>(
     null
@@ -58,7 +83,9 @@ export const NotificationBadge: React.FC = () => {
           // Enhance notifications with additional data
           const enhanced = await Promise.all(
             data.map(async (notification) => {
-              let enhancedNotification = { ...notification };
+              const enhancedNotification: EnhancedNotification = {
+                ...notification,
+              };
 
               // Get adoption request details if this is a request notification
               if (
@@ -256,7 +283,9 @@ export const NotificationBadge: React.FC = () => {
     setUnreadCount((prev) => Math.max(0, prev - 1));
   };
 
-  const handleNotificationContentClick = async (notification: any) => {
+  const handleNotificationContentClick = async (
+    notification: EnhancedNotification
+  ) => {
     // Skip if we're in select mode
     if (selectMode) {
       toggleNotificationSelection(notification.id);
@@ -321,7 +350,7 @@ export const NotificationBadge: React.FC = () => {
 
   const handleQuickAction = async (
     e: React.MouseEvent,
-    notification: any,
+    notification: EnhancedNotification,
     action: "view" | "approve" | "deny"
   ) => {
     e.stopPropagation(); // Prevent parent click events
@@ -364,7 +393,7 @@ export const NotificationBadge: React.FC = () => {
   };
 
   // Format notification message with enhanced data
-  const formatNotificationMessage = (notification: any) => {
+  const formatNotificationMessage = (notification: EnhancedNotification) => {
     if (notification.type === "adoption_request") {
       const requesterName = notification.requesterName || "Someone";
       const petName = notification.petName || "your pet";
@@ -602,8 +631,9 @@ export const NotificationBadge: React.FC = () => {
                       className="flex-1 cursor-pointer"
                       onClick={(e) => {
                         e.stopPropagation();
-                        !selectMode &&
+                        if (!selectMode) {
                           handleNotificationContentClick(notification);
+                        }
                       }}
                     >
                       <div className="flex justify-between">

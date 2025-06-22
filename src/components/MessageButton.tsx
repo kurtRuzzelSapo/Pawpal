@@ -16,13 +16,23 @@ interface MessageInput {
   related_post_id: number;
 }
 
-const sendMessage = async (message: MessageInput) => {
+interface MessageResponse {
+  id: number;
+  sender_id: string;
+  receiver_id: string;
+  content: string;
+  related_post_id: number;
+  created_at: string;
+}
+
+const sendMessage = async (message: MessageInput): Promise<MessageResponse[]> => {
   const { data, error } = await supabase
     .from("messages")
-    .insert(message);
+    .insert(message)
+    .select();
 
   if (error) throw new Error(error.message);
-  return data;
+  return data || [];
 };
 
 export const MessageButton = ({ receiverId, postId }: Props) => {
@@ -30,7 +40,7 @@ export const MessageButton = ({ receiverId, postId }: Props) => {
   const [showModal, setShowModal] = useState(false);
   const [message, setMessage] = useState("");
 
-  const mutation: UseMutationResult<any, Error, MessageInput> = useMutation({
+  const mutation: UseMutationResult<MessageResponse[], Error, MessageInput> = useMutation({
     mutationFn: (data: MessageInput) => sendMessage(data),
     onSuccess: () => {
       setTimeout(() => {

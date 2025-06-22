@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../supabase-client";
 import { Link } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
-import {  FaPaw, FaMapMarkerAlt, FaCalendarAlt, FaRuler } from "react-icons/fa";
+import { FaPaw, FaArrowRight } from "react-icons/fa";
 import { MdPets } from "react-icons/md";
 
 export interface Post {
@@ -17,10 +16,10 @@ export interface Post {
   breed?: string;
   vaccination_status?: boolean;
   location?: string;
-  size?: 'Small' | 'Medium' | 'Large' | 'Extra Large';
+  size?: "Small" | "Medium" | "Large" | "Extra Large";
   temperament?: string[];
   health_info?: string;
-  status?: 'Available' | 'Pending' | 'Adopted';
+  status?: "Available" | "Pending" | "Adopted";
   name?: string;
   user_id?: string;
   avatar_url?: string;
@@ -29,14 +28,21 @@ export interface Post {
   likes?: { id: number }[];
 }
 
-export const PostList = () => {
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
+interface PostListProps {
+  posts?: Post[];
+}
+
+export const PostList: React.FC<PostListProps> = ({ posts: initialPosts }) => {
+  const [posts, setPosts] = useState<Post[]>(initialPosts || []);
+  const [loading, setLoading] = useState(!initialPosts);
 
   useEffect(() => {
-    fetchPosts();
-  }, [user]);
+    if (!initialPosts) {
+      fetchPosts();
+    } else {
+      setPosts(initialPosts);
+    }
+  }, [initialPosts]);
 
   const fetchPosts = async () => {
     try {
@@ -57,10 +63,10 @@ export const PostList = () => {
       }
 
       // Transform the data to include counts
-      const enrichedPosts = postsData.map(post => ({
+      const enrichedPosts = postsData.map((post) => ({
         ...post,
         like_count: 0,
-        comment_count: 0
+        comment_count: 0,
       }));
 
       console.log("Enriched posts:", enrichedPosts);
@@ -74,14 +80,14 @@ export const PostList = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Available':
-        return 'from-green-400 to-teal-400';
-      case 'Pending':
-        return 'from-yellow-400 to-amber-400';
-      case 'Adopted':
-        return 'from-blue-400 to-sky-400';
+      case "Available":
+        return "from-green-400 to-teal-400";
+      case "pending":
+        return "from-yellow-400 to-amber-400";
+      case "approved":
+        return "from-blue-400 to-sky-400";
       default:
-        return 'from-gray-400 to-gray-500';
+        return "from-gray-400 to-gray-500";
     }
   };
 
@@ -94,122 +100,113 @@ export const PostList = () => {
   }
 
   return (
-    <div className="w-full grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+    <div className="w-full grid gap-4 grid-cols-[repeat(auto-fill,minmax(280px,1fr))]">
       {posts.length === 0 && !loading ? (
-        <div className="text-center text-violet-600 py-10 col-span-full font-['Poppins']">
-          <FaPaw className="text-5xl mx-auto mb-4 text-violet-300" />
-          <p className="text-xl mb-2">No posts found</p>
-          <p className="text-violet-500 mb-4">Be the first to create a post!</p>
-          <Link 
+        <div className="text-center text-violet-600 py-8 sm:py-10 col-span-full font-['Poppins']">
+          <FaPaw className="text-4xl sm:text-5xl mx-auto mb-3 sm:mb-4 text-violet-300" />
+          <p className="text-lg sm:text-xl mb-2">No posts found</p>
+          <p className="text-violet-500 mb-3 sm:mb-4 text-sm sm:text-base">
+            Be the first to create a post!
+          </p>
+          <Link
             to="/create"
-            className="bg-gradient-to-r from-violet-500 to-blue-500 text-white px-6 py-3 rounded-xl font-medium hover:from-violet-600 hover:to-blue-600 transform hover:scale-105 transition-all duration-300 shadow-md inline-flex items-center gap-2"
+            className="bg-gradient-to-r from-violet-500 to-blue-500 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-medium hover:from-violet-600 hover:to-blue-600 transform hover:scale-105 transition-all duration-300 shadow-md inline-flex items-center gap-2 text-sm sm:text-base"
           >
             <FaPaw /> Create Post
           </Link>
         </div>
       ) : (
-        posts.map((post) => (
+        posts.map((post, index) => (
           <div
             key={post.id}
-            className="group"
+            className="group rounded-2xl overflow-hidden bg-white shadow-lg hover:shadow-xl transition-all duration-300 ease-in-out hover:-translate-y-1"
+            style={{
+              opacity: 0,
+              animation: `fade-in-up 0.5s ease-out forwards`,
+              animationDelay: `${index * 100}ms`,
+            }}
           >
-            <Link to={`/post/${post.id}`} className="block">
-              <div className="w-full bg-white/90 backdrop-blur-md rounded-2xl overflow-hidden transition-all duration-300 shadow-md hover:shadow-lg group-hover:translate-y-[-5px] border border-violet-100">
-                {/* Header: Title and Status */}
-                <div className="px-5 pt-5 flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="flex flex-col">
-                      <div className="text-xl leading-snug font-bold text-violet-800 font-['Quicksand']">
-                        {post.name || "Unnamed Pet"}
-                      </div>
-                      {post.breed && (
-                        <div className="text-sm text-violet-600 font-['Poppins'] flex items-center">
-                          <MdPets className="mr-1 text-violet-400" />
-                          {post.breed}
-                        </div>
-                      )}
-                    </div>
-                  </div>
+            <Link to={`/post/${post.id}`} className="block h-full">
+              <div className="w-full h-full flex flex-col">
+                {/* Image Section */}
+                <div className="relative overflow-hidden">
+                  <img
+                    src={post.image_url || "/default-pet.jpg"}
+                    alt={post.name || "Pet"}
+                    className="w-full object-cover h-52 transition-transform duration-500 ease-in-out group-hover:scale-110"
+                  />
                   {post.status && (
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium text-white bg-gradient-to-r ${getStatusColor(post.status)} shadow-sm font-['Poppins']`}>
+                    <span
+                      className={`absolute top-3 right-3 px-3 py-1 rounded-full text-xs font-bold text-white bg-gradient-to-r ${getStatusColor(
+                        post.status
+                      )} shadow-lg uppercase tracking-wider`}
+                    >
                       {post.status}
                     </span>
                   )}
                 </div>
 
-                {/* Image Banner */}
-                <div className="mt-4 relative overflow-hidden">
-                  <img
-                    src={post.image_url || '/default-pet.jpg'}
-                    alt={post.name || "Pet"}
-                    className="w-full object-cover h-52 group-hover:scale-105 transition-transform duration-500"
-                  />
-                </div>
-
-                {/* Pet Details */}
-                <div className="p-5 space-y-3">
-                  {/* Location and Age */}
-                  <div className="flex justify-between text-sm font-['Poppins']">
-                    {post.location && (
-                      <span className="flex items-center text-violet-700">
-                        <FaMapMarkerAlt className="mr-1 text-violet-500" />
-                        {post.location}
-                      </span>
-                    )}
-                    {post.age !== undefined && post.age !== null && (
-                      <span className="flex items-center text-violet-700">
-                        <FaCalendarAlt className="mr-1 text-violet-500" />
-                        {post.age} months
-                      </span>
+                {/* Content Section */}
+                <div className="p-4 flex-1 flex flex-col">
+                  {/* Name and Breed */}
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-800 font-['Quicksand'] truncate">
+                      {post.name || "Unnamed Pet"}
+                    </h3>
+                    {post.breed && (
+                      <p className="text-sm text-gray-500 font-['Poppins'] flex items-center truncate">
+                        <MdPets className="mr-2 flex-shrink-0 text-gray-400" />
+                        {post.breed}
+                      </p>
                     )}
                   </div>
 
-                  {/* Size */}
-                  {post.size && (
-                    <div className="flex items-center text-violet-700 text-sm font-['Poppins']">
-                      <FaRuler className="mr-1 text-violet-500" />
-                      <span>{post.size}</span>
+                  {/* Quick Facts Bar */}
+                  <div className="flex justify-around text-center my-4 py-2 border-y border-gray-100">
+                    <div>
+                      <p className="text-xs text-gray-500 font-['Poppins'] uppercase tracking-wider">
+                        Age
+                      </p>
+                      <p className="font-bold text-gray-700 text-sm sm:text-base">
+                        {post.age !== undefined ? `${post.age} mo` : "N/A"}
+                      </p>
                     </div>
-                  )}
-
-                  {/* Temperament */}
-                  {post.temperament && post.temperament.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {post.temperament.map((trait, index) => (
-                        <span
-                          key={index}
-                          className="px-2 py-1 bg-violet-100 rounded-full text-xs text-violet-700 font-['Poppins']"
-                        >
-                          {trait}
-                        </span>
-                      ))}
+                    <div>
+                      <p className="text-xs text-gray-500 font-['Poppins'] uppercase tracking-wider">
+                        Size
+                      </p>
+                      <p className="font-bold text-gray-700 text-sm sm:text-base">
+                        {post.size || "N/A"}
+                      </p>
                     </div>
-                  )}
+                    <div>
+                      <p className="text-xs text-gray-500 font-['Poppins'] uppercase tracking-wider">
+                        Location
+                      </p>
+                      <p
+                        className="font-bold text-gray-700 truncate text-sm sm:text-base"
+                        title={post.location}
+                      >
+                        {post.location || "N/A"}
+                      </p>
+                    </div>
+                  </div>
 
                   {/* Description Preview */}
                   {post.content && (
-                    <p className="text-sm text-gray-600 mt-3 line-clamp-2 font-['Poppins']">
+                    <p className="text-sm text-gray-600 line-clamp-3 font-['Poppins'] flex-grow">
                       {post.content}
                     </p>
                   )}
-                </div>
 
-                {/* Interaction Stats */}
-                {/* <div className="flex justify-between items-center mt-2 px-5 pb-5">
-                  <div className="flex gap-4">
-                    <span className="flex items-center text-pink-500 text-sm font-medium font-['Poppins']">
-                      <FaHeart className="mr-1" />
-                      {post.like_count ?? 0}
-                    </span>
-                    <span className="flex items-center text-blue-500 text-sm font-medium font-['Poppins']">
-                      <FaComment className="mr-1" />
-                      {post.comment_count ?? 0}
+                  {/* Footer with action */}
+                  <div className="mt-4 pt-4 border-t border-gray-100 text-right">
+                    <span className="inline-flex items-center font-semibold text-violet-600 group-hover:text-blue-500 transition-colors duration-300 font-['Poppins'] text-sm">
+                      View Details
+                      <FaArrowRight className="ml-2 transition-transform duration-300 group-hover:translate-x-1" />
                     </span>
                   </div>
-                  <span className="text-violet-600 text-sm font-medium hover:text-violet-800 transition-colors font-['Poppins']">
-                    View Details →
-                  </span>
-                </div> */}
+                </div>
               </div>
             </Link>
           </div>
