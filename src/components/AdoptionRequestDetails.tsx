@@ -16,13 +16,37 @@ interface AdoptionRequestDetailsProps {
   onStatusChange: () => void;
 }
 
+interface PostData {
+  name: string;
+  image_url: string;
+}
+
+interface RequesterData {
+  id: string;
+  full_name: string;
+  avatar_url?: string;
+  location?: string;
+  email: string;
+}
+
+interface AdoptionRequest {
+  id: number;
+  post_id: number;
+  requester_id: string;
+  owner_id: string;
+  status: string;
+  created_at: string;
+  updated_at?: string;
+  post?: PostData;
+}
+
 export const AdoptionRequestDetails: React.FC<AdoptionRequestDetailsProps> = ({
   requestId,
   onClose,
   onStatusChange,
 }) => {
-  const [request, setRequest] = useState<any>(null);
-  const [requester, setRequester] = useState<any>(null);
+  const [request, setRequest] = useState<AdoptionRequest | null>(null);
+  const [requester, setRequester] = useState<RequesterData | null>(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const { user } = useAuth();
@@ -121,9 +145,13 @@ export const AdoptionRequestDetails: React.FC<AdoptionRequestDetailsProps> = ({
             });
           }
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("Error fetching request details:", error);
-        toast.error(error.message || "Failed to load request details");
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : "Failed to load request details";
+        toast.error(errorMessage);
         // Close the modal after showing error
         setTimeout(() => {
           onClose();
@@ -199,16 +227,18 @@ export const AdoptionRequestDetails: React.FC<AdoptionRequestDetailsProps> = ({
       );
       onStatusChange();
       onClose();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(
         `Error ${status === "approved" ? "approving" : "rejecting"} request:`,
         error
       );
-      toast.error(
-        `Failed to ${
-          status === "approved" ? "approve" : "reject"
-        } request. Please try again.`
-      );
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : `Failed to ${
+              status === "approved" ? "approve" : "reject"
+            } request. Please try again.`;
+      toast.error(errorMessage);
     } finally {
       setProcessing(false);
     }

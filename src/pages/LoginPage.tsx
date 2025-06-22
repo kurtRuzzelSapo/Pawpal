@@ -15,15 +15,26 @@ const LoginPage = () => {
     e.preventDefault();
     setLoading(true);
     setError("");
-    
+
     const { success, error } = await signInWithEmail(email, password);
-    
-    setLoading(false);
-    if (!success && error) {
-      setError(error);
+
+    if (!success) {
+      setError(error || "Failed to sign in");
+      setLoading(false);
+      return;
+    }
+
+    // Navigate based on role
+    const userRole = localStorage.getItem("userRole");
+    if (userRole === "admin") {
+      navigate("/admin-dashboard");
+    } else if (userRole === "vet") {
+      navigate("/vet-dashboard");
     } else {
       navigate("/home");
     }
+
+    setLoading(false);
   };
 
   return (
@@ -38,14 +49,16 @@ const LoginPage = () => {
             Let us help you take care of your pets.
           </h1>
           <p className="text-xl text-gray-600 mb-12">
-            Our platform connects pet owners with qualified veterinarians for the best possible care.
+            Our platform connects pet owners with qualified veterinarians for
+            the best possible care.
           </p>
         </div>
 
         {/* Testimonial Card */}
         <div className="bg-gray-900 text-white p-8 rounded-2xl">
           <p className="text-lg mb-6">
-            "I'm impressed with the care and attention my pets receive through this platform. The veterinarians are professional and caring."
+            "I'm impressed with the care and attention my pets receive through
+            this platform. The veterinarians are professional and caring."
           </p>
           <div className="flex items-center">
             <div className="w-12 h-12 bg-violet-600 rounded-full flex items-center justify-center text-xl font-bold">
@@ -78,7 +91,7 @@ const LoginPage = () => {
                   type="email"
                   placeholder="Enter your email"
                   value={email}
-                  onChange={e => setEmail(e.target.value)}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-10 px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
                   required
                 />
@@ -97,7 +110,7 @@ const LoginPage = () => {
                   type="password"
                   placeholder="Enter your password"
                   value={password}
-                  onChange={e => setPassword(e.target.value)}
+                  onChange={(e) => setPassword(e.target.value)}
                   className="w-full pl-10 px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
                   required
                 />
@@ -117,9 +130,24 @@ const LoginPage = () => {
             >
               {loading ? (
                 <div className="flex items-center justify-center">
-                  <svg className="animate-spin h-5 w-5 mr-3 text-white" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  <svg
+                    className="animate-spin h-5 w-5 mr-3 text-white"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                      fill="none"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
                   </svg>
                   Signing in...
                 </div>
@@ -132,14 +160,14 @@ const LoginPage = () => {
           <div className="mt-8 text-center">
             <p className="text-gray-600 mb-4">Create an account?</p>
             <div className="flex justify-center space-x-6">
-              <Link 
-                to="/signupvet" 
+              <Link
+                to="/signupvet"
                 className="text-violet-600 hover:text-violet-800 font-semibold"
               >
                 as a Vet
               </Link>
-              <Link 
-                to="/signup" 
+              <Link
+                to="/signup"
                 className="text-violet-600 hover:text-violet-800 font-semibold"
               >
                 as a Pet Owner
@@ -152,4 +180,4 @@ const LoginPage = () => {
   );
 };
 
-export default LoginPage; 
+export default LoginPage;

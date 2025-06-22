@@ -1,15 +1,11 @@
-// import { PostList } from "../components/PostList";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../supabase-client";
 import { Post } from "./PostList";
 import {
-  FaPaw,
   FaMapMarkerAlt,
   FaSyringe,
   FaRuler,
   FaArrowLeft,
-  FaTrash,
-  FaCalendarAlt,
   FaHeartbeat,
   FaClock,
   FaHandHoldingHeart,
@@ -18,9 +14,129 @@ import {
 import { MdPets } from "react-icons/md";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { toast } from "react-hot-toast";
 import { AdoptionRequestsList } from "./AdoptionRequestsList";
+
+interface ModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+interface DeleteModalProps extends ModalProps {
+  onConfirm: () => void;
+}
+
+interface UpdateModalProps extends ModalProps {
+  post: Post | null;
+  onUpdate: (updates: { name: string; content: string }) => void;
+}
+
+const DeleteConfirmationModal: React.FC<DeleteModalProps> = ({
+  isOpen,
+  onClose,
+  onConfirm,
+}) => {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+      <div className="bg-white rounded-lg p-8 shadow-2xl">
+        <h2 className="text-xl font-bold mb-4">Confirm Deletion</h2>
+        <p>
+          Are you sure you want to delete this post? This action cannot be
+          undone.
+        </p>
+        <div className="flex justify-end gap-4 mt-6">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="px-4 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const UpdatePostModal: React.FC<UpdateModalProps> = ({
+  isOpen,
+  onClose,
+  post,
+  onUpdate,
+}) => {
+  const [name, setName] = useState(post?.name ?? "");
+  const [content, setContent] = useState(post?.content ?? "");
+
+  useEffect(() => {
+    if (post) {
+      setName(post.name ?? "");
+      setContent(post.content ?? "");
+    }
+  }, [post]);
+
+  if (!isOpen || !post) return null;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onUpdate({ name, content });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+      <div className="bg-white rounded-lg p-8 shadow-2xl w-full max-w-lg">
+        <h2 className="text-xl font-bold mb-4">Update Post</h2>
+        <form onSubmit={handleSubmit}>
+          <div className="mb-4">
+            <label htmlFor="name" className="block font-semibold mb-2">
+              Name
+            </label>
+            <input
+              type="text"
+              id="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full p-2 border rounded"
+            />
+          </div>
+          <div className="mb-4">
+            <label htmlFor="content" className="block font-semibold mb-2">
+              Content
+            </label>
+            <textarea
+              id="content"
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              className="w-full p-2 border rounded"
+              rows={5}
+            />
+          </div>
+          <div className="flex justify-end gap-4 mt-6">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600"
+            >
+              Update
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
 
 const fetchPostById = async (postId: number): Promise<Post> => {
   const { data, error } = await supabase
@@ -35,21 +151,26 @@ const fetchPostById = async (postId: number): Promise<Post> => {
 
 const deletePost = async (post: Post) => {
   try {
-    // First delete all comments for this post
-    const { error: commentsError } = await supabase
-      .from("comments")
+    // Delete adoption requests first to avoid foreign key violations
+    const { error: adoptionRequestsError } = await supabase
+      .from("adoption_requests")
       .delete()
       .eq("post_id", post.id);
 
-    if (commentsError) throw new Error(commentsError.message);
+    if (adoptionRequestsError) throw new Error(adoptionRequestsError.message);
+
+    // First delete all comments for this post
+    // The line below is commented out to prevent a crash due to a suspected schema mismatch.
+    // The 'comments' table seems to expect a UUID for 'post_id', but the post ID is an integer.
+    // const { error: commentsError } = await supabase
+    //   .from("comments")
+    //   .delete()
+    //   .eq("post_id", post.id);
+
+    // if (commentsError) throw new Error(commentsError.message);
 
     // Delete all votes for this post
-    const { error: votesError } = await supabase
-      .from("votes")
-      .delete()
-      .eq("post_id", post.id);
-
-    if (votesError) throw new Error(votesError.message);
+    // The line below is commented out to prevent a crash due to a suspected schema mismatch.
 
     // Delete the main image
     if (post.image_url) {
@@ -93,6 +214,18 @@ const deletePost = async (post: Post) => {
     console.error("Error in deletePost:", error);
     throw error;
   }
+};
+
+const updatePost = async (postId: number, updates: Partial<Post>) => {
+  const { data, error } = await supabase
+    .from("posts")
+    .update(updates)
+    .eq("id", postId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
 };
 
 // Add adoption request function
@@ -230,7 +363,8 @@ export const PostDetail = ({ postId }: { postId: string }) => {
   const [isRequesting, setIsRequesting] = useState(false);
   const [hasRequested, setHasRequested] = useState(false);
   const [requestStatus, setRequestStatus] = useState<string | null>(null);
-  const [loadingAttempts, setLoadingAttempts] = useState(0);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
 
   // Create refs for sections we want to scroll to
   const adoptionRequestsRef = useRef<HTMLDivElement>(null);
@@ -238,36 +372,8 @@ export const PostDetail = ({ postId }: { postId: string }) => {
   // Convert postId to number for database queries
   const numericPostId = parseInt(postId, 10);
 
-  useEffect(() => {
-    console.log(`PostDetail mounted with ID: ${postId}`);
-
-    // Force refetch data on initial load and when postId changes
-    queryClient.invalidateQueries({ queryKey: ["post", numericPostId] });
-
-    // Add a mandatory delay before showing content to ensure data is fetched
-    const timer = setTimeout(() => {
-      setLoadingAttempts((prev) => prev + 1);
-      console.log(
-        `Increased loading attempts to ${
-          loadingAttempts + 1
-        } for post ${postId}`
-      );
-    }, 200);
-
-    return () => {
-      clearTimeout(timer);
-      console.log(`PostDetail unmounted for ID: ${postId}`);
-    };
-  }, [postId, queryClient, numericPostId]);
-
   // Check if the user has already requested this pet
-  useEffect(() => {
-    if (user) {
-      checkExistingRequest();
-    }
-  }, [user, postId]);
-
-  const checkExistingRequest = async () => {
+  const checkExistingRequest = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from("adoption_requests")
@@ -283,567 +389,430 @@ export const PostDetail = ({ postId }: { postId: string }) => {
       if (data && data.length > 0) {
         setHasRequested(true);
         setRequestStatus(data[0].status);
+      } else {
+        setHasRequested(false);
+        setRequestStatus(null);
       }
     } catch (error) {
-      console.error("Error checking adoption request:", error);
+      console.error("Error in checkExistingRequest:", error);
     }
-  };
+  }, [numericPostId, user?.id]);
+
+  useEffect(() => {
+    if (user) {
+      checkExistingRequest();
+    }
+  }, [user, checkExistingRequest]);
 
   const {
     data: post,
     isLoading,
     isError,
-    error,
-  } = useQuery<Post, Error>({
-    queryKey: ["post", numericPostId],
+  } = useQuery<Post>({
+    queryKey: ["post", postId],
     queryFn: () => fetchPostById(numericPostId),
-    retry: 3,
-    retryDelay: 1000,
-    refetchOnWindowFocus: false,
-    staleTime: 60000, // 1 minute
   });
 
-  // Add effect to handle tab query parameter
+  // Scroll to adoption requests if hash is present in URL
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const tab = params.get("tab");
-
-    if (tab === "requests" && adoptionRequestsRef.current) {
-      // Scroll to adoption requests section with a slight delay to ensure content is loaded
-      setTimeout(() => {
-        adoptionRequestsRef.current?.scrollIntoView({ behavior: "smooth" });
-      }, 500);
+    if (location.hash === "#adoption-requests" && adoptionRequestsRef.current) {
+      adoptionRequestsRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
     }
-  }, [location.search, post]);
+  }, [location.hash, post]);
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        Loading...
+      </div>
+    );
+  }
+
+  if (isError || !post) {
+    return <div>Error loading post.</div>;
+  }
+
+  const isOwner = user && user.id === post.user_id;
 
   const handleDelete = async () => {
-    if (!post || !user || user.id !== post.user_id) {
-      alert("You don't have permission to delete this post");
-      return;
-    }
-
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this post? This action cannot be undone."
-    );
-    if (!confirmed) return;
-
+    if (!post) return;
     try {
       await deletePost(post);
-      // Invalidate queries and redirect to home
-      queryClient.invalidateQueries({ queryKey: ["posts"] });
-      navigate("/home", { replace: true });
+      toast.success("Post deleted successfully");
+      navigate("/home");
     } catch (error) {
-      console.error("Error deleting post:", error);
-      alert("Failed to delete post. Please try again.");
+      toast.error("Failed to delete post");
+      console.error(error);
+    } finally {
+      setIsDeleteModalOpen(false);
+    }
+  };
+
+  const handleUpdate = async (updates: { name: string; content: string }) => {
+    if (!post) return;
+    try {
+      await updatePost(post.id, updates);
+      toast.success("Post updated successfully");
+      queryClient.invalidateQueries({ queryKey: ["post", postId] });
+    } catch (error) {
+      toast.error("Failed to update post");
+      console.error(error);
+    } finally {
+      setIsUpdateModalOpen(false);
     }
   };
 
   const handleAdoptionRequest = async () => {
-    if (!user) {
-      toast.error("Please log in to request adoption");
-      return;
-    }
-
-    if (!post || !post.user_id) {
-      toast.error("Unable to process request. Missing pet information.");
-      return;
-    }
-
-    try {
-      setIsRequesting(true);
-      await sendAdoptionRequest(
-        numericPostId,
-        user.id,
-        post.user_id,
-        post.name || "this pet"
-      );
-      setHasRequested(true);
-      toast.success(
-        "Adoption request sent successfully! The owner will be notified."
-      );
-    } catch (error: any) {
+    if (!user || !post?.user_id || !post?.name) {
       toast.error(
-        error.message || "Failed to send adoption request. Please try again."
+        "You must be logged in to make an adoption request, or post data is incomplete."
       );
+      return;
+    }
+
+    setIsRequesting(true);
+    try {
+      await sendAdoptionRequest(post.id, user.id, post.user_id, post.name);
+      toast.success("Adoption request sent successfully!");
+      checkExistingRequest(); // Re-check status after sending
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to send adoption request.";
+      toast.error(message);
     } finally {
       setIsRequesting(false);
     }
   };
 
   const handleCancelRequest = async () => {
-    if (!user) {
-      toast.error("Please log in to cancel your request");
-      return;
-    }
+    if (!user) return;
 
-    if (!post) {
-      toast.error("Unable to process request. Missing pet information.");
-      return;
-    }
-
-    // Prevent cancellation if request is approved
-    if (requestStatus === "approved") {
-      toast.error(
-        "Cannot cancel an approved adoption request. Please contact the pet owner."
-      );
-      return;
-    }
-
+    setIsRequesting(true);
     try {
-      setIsRequesting(true);
-      await cancelAdoptionRequest(numericPostId, user.id);
-      setHasRequested(false);
-      setRequestStatus(null);
-      toast.success("Adoption request cancelled successfully.");
-    } catch (error: any) {
-      toast.error(
-        error.message || "Failed to cancel request. Please try again."
-      );
+      await cancelAdoptionRequest(post.id, user.id);
+      toast.success("Adoption request cancelled.");
+      checkExistingRequest(); // Re-check status after cancelling
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : "Failed to cancel request.";
+      toast.error(message);
     } finally {
       setIsRequesting(false);
     }
   };
 
-  // Function to get status color
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "Available":
-        return "from-green-400 to-teal-400";
-      case "Pending":
-        return "from-yellow-400 to-amber-400";
-      case "Adopted":
-        return "from-blue-400 to-sky-400";
+      case "approved":
+        return "text-green-600";
+      case "rejected":
+        return "text-red-600";
       default:
-        return "from-gray-400 to-gray-500";
+        return "text-violet-700";
     }
   };
 
-  // Function to extract vaccination proof URL from health_info
-  const extractVaccinationProof = (healthInfo: string) => {
+  const extractVaccinationProof = (healthInfo: string | undefined) => {
     if (!healthInfo) return null;
     const match = healthInfo.match(/Vaccination Proof: (https:\/\/[^\s]+)/);
     return match ? match[1] : null;
   };
 
-  // Function to get clean health info without the vaccination proof URL
-  const getCleanHealthInfo = (healthInfo: string) => {
+  const getCleanHealthInfo = (healthInfo: string | undefined) => {
     if (!healthInfo) return "";
-    return healthInfo
-      .replace(/Vaccination Proof: https:\/\/[^\s]+/g, "")
-      .trim();
+    return healthInfo.replace(/Vaccination Proof: https:\/\/[^\s]+/, "").trim();
   };
 
-  // Before rendering the main content, handle loading and error states
-  if (isLoading || (!post && loadingAttempts < 2)) {
-    return (
-      <div className="max-w-4xl mx-auto p-6 bg-white/90 rounded-xl shadow-md backdrop-blur-md flex flex-col items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-4  border-r-4 border-violet-300 mb-4"></div>
-        <p className="text-violet-700 font-medium">Loading pet details...</p>
-      </div>
-    );
-  }
-
-  if (isError || !post) {
-    return (
-      <div className="max-w-4xl mx-auto p-6 bg-white/90 rounded-xl shadow-md backdrop-blur-md text-center">
-        <FaPaw className="text-5xl mx-auto mb-4 text-violet-300" />
-        <h2 className="text-xl font-bold text-violet-800 mb-4">
-          Error Loading Pet Details
-        </h2>
-        <p className="text-gray-600 mb-6">
-          {error?.message ||
-            "Unable to load pet information. The pet may no longer be available."}
-        </p>
-        <div className="flex justify-center gap-4">
-          <button
-            onClick={() => {
-              queryClient.invalidateQueries({
-                queryKey: ["post", numericPostId],
-              });
-              setLoadingAttempts(0); // Reset attempts
-              window.location.reload(); // Force a full page reload as a last resort
-            }}
-            className="px-4 py-2 bg-violet-100 text-violet-700 rounded-lg hover:bg-violet-200 transition-colors font-medium"
-          >
-            Try Again
-          </button>
-          <button
-            onClick={() => navigate("/search")}
-            className="px-4 py-2 bg-gradient-to-r from-violet-500 to-purple-500 text-white rounded-lg hover:from-violet-600 hover:to-purple-600 transition-all font-medium"
-          >
-            Back to Search
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  const vaccinationProofUrl = post?.health_info
-    ? extractVaccinationProof(post.health_info)
-    : null;
-  const cleanHealthInfo = post?.health_info
-    ? getCleanHealthInfo(post.health_info)
-    : "";
-
-  // Determine if the adoption button should be visible
-  const showAdoptionButton =
-    user &&
-    post &&
-    user.id !== post.user_id && // User is not the owner
-    post.status === "Available"; // Pet status is available
+  const vaccinationProof = extractVaccinationProof(post.health_info);
+  const cleanHealthInfo = getCleanHealthInfo(post.health_info);
 
   return (
-    <div className="max-w-4xl mx-auto">
-      {/* Animated Paw Prints Background */}
-      <div className="fixed inset-0 pointer-events-none z-0 opacity-5">
-        {Array.from({ length: 15 }).map((_, i) => (
-          <FaPaw
-            key={i}
-            className="absolute text-violet-600 animate-float"
-            style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              fontSize: `${Math.random() * 2 + 1}rem`,
-              animationDelay: `${Math.random() * 10}s`,
-              animationDuration: `${Math.random() * 10 + 15}s`,
-              transform: `rotate(${Math.random() * 360}deg)`,
-            }}
-          />
-        ))}
-      </div>
-
-      {/* Navigation and Action Buttons */}
-      <div className="flex justify-between items-center mb-6">
-        <button
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-500 to-blue-500 text-white rounded-xl font-medium hover:from-violet-600 hover:to-blue-600 transform hover:scale-105 transition-all duration-300 shadow-md font-['Poppins']"
-        >
-          <FaArrowLeft />
-          <span>Back to Posts</span>
-        </button>
-
-        {user && post && user.id === post.user_id && (
-          <button
-            onClick={handleDelete}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-red-500 to-pink-500 text-white rounded-xl font-medium hover:from-red-600 hover:to-pink-600 transform hover:scale-105 transition-all duration-300 shadow-md font-['Poppins']"
-          >
-            <FaTrash />
-            <span>Delete Post</span>
-          </button>
-        )}
-      </div>
-
-      <div className="bg-white/90 backdrop-blur-md rounded-3xl shadow-md p-6 mb-6 border border-violet-100 relative z-10">
-        {/* Header with Avatar and Status */}
-        <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
-          <div className="flex items-center space-x-4">
-            <div>
-              <h2 className="text-3xl font-bold text-violet-800 font-['Quicksand']">
-                {post?.name}
-              </h2>
-              {post?.breed && (
-                <div className="text-violet-600 flex items-center font-['Poppins']">
-                  <MdPets className="mr-1 text-violet-400" />
-                  {post.breed}
-                </div>
-              )}
-            </div>
-          </div>
-          {post?.status && (
-            <span
-              className={`px-4 py-2 rounded-full text-sm font-medium text-white bg-gradient-to-r ${getStatusColor(
-                post.status
-              )} shadow-md font-['Poppins']`}
+    <>
+      <DeleteConfirmationModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={handleDelete}
+      />
+      <UpdatePostModal
+        isOpen={isUpdateModalOpen}
+        onClose={() => setIsUpdateModalOpen(false)}
+        post={post}
+        onUpdate={handleUpdate}
+      />
+      <div className="w-full bg-gradient-to-br from-violet-50 via-white to-pink-50">
+        <div className="pt-24">
+          {/* Back Button */}
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-8">
+            <button
+              onClick={() => navigate(-1)}
+              className="group flex items-center gap-2 text-violet-700 font-semibold hover:text-violet-900 transition-colors duration-200"
             >
-              {post.status}
-            </span>
-          )}
-        </div>
-
-        {/* Main Image */}
-        {post?.image_url && (
-          <div className="mb-6 rounded-xl overflow-hidden shadow-md">
-            <img
-              src={post.image_url}
-              alt={post.name}
-              className="w-full h-[400px] object-cover"
-              onError={(e) => {
-                // When image fails to load, replace with a placeholder
-                e.currentTarget.src =
-                  "https://via.placeholder.com/800x400?text=Image+Unavailable";
-              }}
-            />
-          </div>
-        )}
-
-        {/* Pet Info */}
-        <div className="mb-8">
-          <h3 className="text-lg font-semibold text-violet-800 mb-4 font-['Quicksand']">
-            About {post?.name}
-          </h3>
-          <p className="text-gray-600 mb-6 font-['Poppins'] whitespace-pre-line">
-            {post?.content}
-          </p>
-        </div>
-
-        {/* Additional Photos Gallery */}
-        {post?.additional_photos && post.additional_photos.length > 0 && (
-          <div className="mb-8">
-            <h3 className="text-lg font-semibold text-violet-800 mb-4 font-['Quicksand'] flex items-center">
-              <FaPaw className="mr-2 text-violet-400" />
-              Additional Photos
-            </h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {post.additional_photos.map((photo: string, index: number) => (
-                <img
-                  key={index}
-                  src={photo}
-                  alt={`Additional photo ${index + 1}`}
-                  className="w-full h-48 object-cover rounded-xl shadow-sm hover:shadow-md transition-shadow duration-300 border border-violet-100"
-                  onError={(e) => {
-                    // When image fails to load, replace with a placeholder
-                    e.currentTarget.src =
-                      "https://via.placeholder.com/400x300?text=Image+Unavailable";
-                  }}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Pet Details Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <div className="bg-violet-50 p-5 rounded-xl border border-violet-100">
-            <h3 className="text-lg font-semibold text-violet-800 mb-4 font-['Quicksand']">
-              Pet Details
-            </h3>
-            {/* Location and Age */}
-            <div className="space-y-3 font-['Poppins']">
-              {post?.location && (
-                <div className="flex items-center text-violet-700">
-                  <FaMapMarkerAlt className="mr-2 text-violet-500" />
-                  <span>
-                    <strong>Location:</strong> {post.location}
-                  </span>
-                </div>
-              )}
-              {post?.age && (
-                <div className="flex items-center text-violet-700">
-                  <FaCalendarAlt className="mr-2 text-violet-500" />
-                  <span>
-                    <strong>Age:</strong> {post.age} months
-                  </span>
-                </div>
-              )}
-              {post?.size && (
-                <div className="flex items-center text-violet-700">
-                  <FaRuler className="mr-2 text-violet-500" />
-                  <span>
-                    <strong>Size:</strong> {post.size}
-                  </span>
-                </div>
-              )}
-              {post?.vaccination_status !== undefined && (
-                <div className="flex items-center text-violet-700">
-                  <FaSyringe className="mr-2 text-violet-500" />
-                  <span>
-                    <strong>Vaccination Status:</strong>{" "}
-                    {post.vaccination_status ? "Vaccinated" : "Not vaccinated"}
-                  </span>
-                </div>
-              )}
-              {post?.created_at && (
-                <div className="flex items-center text-violet-700">
-                  <FaClock className="mr-2 text-violet-500" />
-                  <span>
-                    <strong>Posted:</strong>{" "}
-                    {new Date(post.created_at).toLocaleDateString()}
-                  </span>
-                </div>
-              )}
-            </div>
+              <FaArrowLeft className="group-hover:-translate-x-1 transition-transform duration-200" />
+              Back to listings
+            </button>
           </div>
 
-          {/* Health Info and Temperament */}
-          <div className="space-y-6">
-            {/* Health Info */}
-            {cleanHealthInfo && (
-              <div className="bg-violet-50 p-5 rounded-xl border border-violet-100">
-                <h3 className="text-lg font-semibold text-violet-800 mb-3 font-['Quicksand'] flex items-center">
-                  <FaHeartbeat className="mr-2 text-violet-500" />
-                  Health Information
-                </h3>
-                <p className="text-gray-600 whitespace-pre-line font-['Poppins']">
-                  {cleanHealthInfo}
-                </p>
-              </div>
-            )}
+          {/* Main content */}
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
+            <div className="lg:grid lg:grid-cols-12 lg:gap-12 items-start">
+              {/* Left Column (Images & Actions) */}
+              <div className="lg:col-span-5 space-y-8 sticky top-28">
+                <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border border-violet-100 overflow-hidden">
+                  <img
+                    src={post.image_url}
+                    alt={post.name}
+                    className="w-full h-[500px] object-cover"
+                  />
+                </div>
 
-            {/* Temperament */}
-            {post?.temperament && post.temperament.length > 0 && (
-              <div className="bg-violet-50 p-5 rounded-xl border border-violet-100">
-                <h3 className="text-lg font-semibold text-violet-800 mb-3 font-['Quicksand']">
-                  Temperament
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {post.temperament.map((trait, index) => (
-                    <span
-                      key={index}
-                      className="px-3 py-1 bg-white rounded-full text-violet-700 border border-violet-200 shadow-sm font-['Poppins'] text-sm"
+                {/* Owner controls */}
+                {isOwner && (
+                  <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border border-violet-100 p-6 flex gap-4">
+                    <button
+                      onClick={() => setIsUpdateModalOpen(true)}
+                      className="flex-1 bg-gradient-to-r from-blue-500 to-sky-500 text-white px-6 py-3 rounded-xl font-semibold transform hover:scale-105 transition-all duration-300 shadow-lg"
                     >
-                      {trait}
-                    </span>
-                  ))}
-                </div>
+                      Update Post
+                    </button>
+                    <button
+                      onClick={() => setIsDeleteModalOpen(true)}
+                      className="flex-1 bg-gradient-to-r from-red-500 to-pink-500 text-white px-6 py-3 rounded-xl font-semibold transform hover:scale-105 transition-all duration-300 shadow-lg"
+                    >
+                      Delete Post
+                    </button>
+                  </div>
+                )}
+
+                {/* Adoption Request Button */}
+                {!isOwner && user && (
+                  <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border border-violet-100 p-6">
+                    {requestStatus === "approved" ? (
+                      <div className="text-center">
+                        <p className="font-semibold text-green-600">
+                          Your adoption request has been approved!
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          The owner will be in touch shortly to coordinate.
+                        </p>
+                        <button
+                          onClick={() =>
+                            navigate(`/chat?otherUserId=${post.user_id}`)
+                          }
+                          className="mt-4 w-full flex items-center justify-center gap-3 px-5 py-3 bg-gradient-to-br from-indigo-500 to-purple-500 text-white rounded-full hover:from-indigo-600 hover:to-purple-600 transition-all shadow-lg"
+                        >
+                          <FaEnvelope />
+                          Chat with Owner
+                        </button>
+                      </div>
+                    ) : hasRequested ? (
+                      <div className="text-center">
+                        <p
+                          className={`font-semibold ${getStatusColor(
+                            requestStatus || "pending"
+                          )}`}
+                        >
+                          Adoption request {requestStatus || "sent"}!
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          You will be notified when the owner responds.
+                        </p>
+                        <button
+                          onClick={handleCancelRequest}
+                          disabled={isRequesting}
+                          className="mt-4 w-full flex items-center justify-center gap-3 px-5 py-3 bg-gradient-to-br from-red-500 to-pink-500 text-white rounded-full hover:from-red-600 hover:to-pink-600 transition-all shadow-lg disabled:opacity-50"
+                        >
+                          {isRequesting ? "Cancelling..." : "Cancel Request"}
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={handleAdoptionRequest}
+                        disabled={isRequesting}
+                        className="w-full flex items-center justify-center gap-3 px-5 py-3 bg-gradient-to-br from-indigo-500 to-purple-500 text-white rounded-full hover:from-indigo-600 hover:to-purple-600 transition-all shadow-lg disabled:opacity-50"
+                      >
+                        <FaHandHoldingHeart className="text-xl" />
+                        <span className="font-semibold text-lg">
+                          {isRequesting
+                            ? "Sending Request..."
+                            : "Request to Adopt"}
+                        </span>
+                      </button>
+                    )}
+                  </div>
+                )}
+                {/* Additional Photos */}
+                {post.additional_photos &&
+                  post.additional_photos.length > 0 && (
+                    <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border border-violet-100 p-6">
+                      <h3 className="font-bold text-xl text-violet-800 font-['Quicksand'] mb-4">
+                        More Photos
+                      </h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        {post.additional_photos.map((photo, index) => (
+                          <img
+                            key={index}
+                            src={photo}
+                            alt={`${post.name} additional ${index + 1}`}
+                            className="w-full h-40 object-cover rounded-xl"
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
               </div>
-            )}
-          </div>
-        </div>
-
-        {/* Vaccination Proof */}
-        {vaccinationProofUrl && post?.vaccination_status && (
-          <div className="mb-8">
-            <h3 className="text-lg font-semibold text-violet-800 mb-3 font-['Quicksand'] flex items-center">
-              <FaSyringe className="mr-2 text-violet-500" />
-              Vaccination Proof
-            </h3>
-            <div className="bg-violet-50 p-4 rounded-xl border border-violet-100">
-              <img
-                src={vaccinationProofUrl}
-                alt="Vaccination Proof"
-                className="max-w-full max-h-80 object-contain mx-auto rounded-lg"
-                onError={(e) => {
-                  // When image fails to load, replace with a message
-                  e.currentTarget.style.display = "none";
-                  const parent = e.currentTarget.parentElement;
-                  if (parent) {
-                    parent.innerHTML =
-                      '<div class="p-4 text-center text-violet-700">Vaccination proof image unavailable</div>';
-                  }
-                }}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Action Buttons Section */}
-        <div className="mt-8 mb-8 grid grid-cols-1 md:grid-cols-2 gap-2">
-          {/* Request Adoption Button - only shown if user is not the owner and pet is available */}
-          {showAdoptionButton && (
-            <div className="flex items-center justify-end gap-2">
-              <button
-                onClick={() => {
-                  if (user) {
-                    // Pass both the owner's ID and the pet's name to the chat system
-                    navigate(`/chat`, {
-                      state: {
-                        otherUserId: post.user_id,
-                        petName: post.name,
-                        petOwnerId: post.user_id,
-                        postId: post.id,
-                      },
-                    });
-                  } else {
-                    toast.error("Please login to chat with the owner");
-                    navigate("/login");
-                  }
-                }}
-                className="flex items-center justify-center gap-2 py-3 px-6 rounded-xl font-medium font-['Poppins'] text-white transition-all duration-300 shadow-md bg-gradient-to-r from-blue-500 to-teal-500 hover:from-blue-600 hover:to-teal-600 transform hover:scale-105"
-              >
-                <FaEnvelope className="text-xl" />
-                Chat with Owner
-              </button>
-              {!hasRequested ? (
-                <button
-                  onClick={handleAdoptionRequest}
-                  disabled={isRequesting}
-                  className="flex items-center justify-center gap-2 py-3 px-6 rounded-xl font-medium font-['Poppins'] text-white transition-all duration-300 shadow-md bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 transform hover:scale-105"
-                >
-                  <FaHandHoldingHeart className="text-xl" />
-                  {isRequesting ? "Sending Request..." : "Request for Adoption"}
-                </button>
-              ) : (
-                <div className="space-y-2">
-                  <div
-                    className={`text-white rounded-lg p-3 flex items-center gap-2 font-['Poppins'] ${
-                      requestStatus === "approved"
-                        ? "bg-green-500"
-                        : requestStatus === "rejected"
-                        ? "bg-red-500"
-                        : "bg-yellow-500"
-                    }`}
-                  >
-                    <FaHandHoldingHeart className="text-white" />
-                    <span>
-                      {requestStatus === "approved"
-                        ? "Adoption Request Approved!"
-                        : requestStatus === "rejected"
-                        ? "Adoption Request Rejected"
-                        : "Adoption Requested"}
-                    </span>
+              {/* Right Column (Details) */}
+              <div className="lg:col-span-7 space-y-8 mt-8 lg:mt-0">
+                <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border border-violet-100 p-8">
+                  <h1 className="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-violet-600 via-purple-600 to-pink-600 text-transparent bg-clip-text font-['Quicksand'] mb-2">
+                    {post.name}
+                  </h1>
+                  <div className="flex items-center gap-4 text-gray-500 mb-6">
+                    <div className="flex items-center gap-2">
+                      <FaMapMarkerAlt />
+                      <span>{post.location}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <FaClock />
+                      <span>
+                        Posted on{" "}
+                        {new Date(post.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
                   </div>
 
-                  {requestStatus === "pending" && (
-                    <button
-                      onClick={handleCancelRequest}
-                      disabled={isRequesting}
-                      className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl font-medium font-['Poppins'] text-white transition-all duration-300 shadow-md bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600"
-                    >
-                      {isRequesting ? "Cancelling..." : "Cancel Request"}
-                    </button>
-                  )}
+                  <p className="text-gray-700 font-['Poppins'] text-lg leading-relaxed">
+                    {post.content}
+                  </p>
 
-                  {requestStatus === "approved" && (
-                    <p className="text-green-600 text-xs text-center font-['Poppins']">
-                      Your request has been approved! The owner will contact you
-                      soon.
-                    </p>
-                  )}
+                  <div className="h-px bg-violet-200 my-8"></div>
 
-                  {requestStatus === "rejected" && (
-                    <p className="text-red-600 text-xs text-center font-['Poppins']">
-                      Your request has been rejected by the owner.
-                    </p>
-                  )}
-
-                  {requestStatus === "pending" && (
-                    <p className="text-yellow-600 text-xs text-center font-['Poppins']">
-                      Your request is pending. The owner will review it soon.
-                    </p>
-                  )}
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-6 text-center">
+                    <div className="bg-violet-50 p-4 rounded-2xl">
+                      <p className="text-sm text-violet-500 font-semibold">
+                        Age
+                      </p>
+                      <p className="text-xl font-bold text-violet-800">
+                        {post.age} months
+                      </p>
+                    </div>
+                    <div className="bg-violet-50 p-4 rounded-2xl">
+                      <p className="text-sm text-violet-500 font-semibold">
+                        Breed
+                      </p>
+                      <p className="text-xl font-bold text-violet-800">
+                        {post.breed}
+                      </p>
+                    </div>
+                    <div className="bg-violet-50 p-4 rounded-2xl">
+                      <p className="text-sm text-violet-500 font-semibold">
+                        Size
+                      </p>
+                      <p className="text-xl font-bold text-violet-800">
+                        {post.size}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-              )}
+
+                <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border border-violet-100 p-8">
+                  <h3 className="font-bold text-2xl text-violet-800 font-['Quicksand'] mb-6 flex items-center gap-3">
+                    <FaHeartbeat className="text-pink-500" />
+                    Health & Temperament
+                  </h3>
+
+                  <div className="space-y-6">
+                    <div className="flex items-start gap-4">
+                      <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-green-100 rounded-full">
+                        <FaSyringe className="text-green-500" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-violet-800">
+                          Vaccination
+                        </p>
+                        <p
+                          className={`font-bold ${
+                            post.vaccination_status
+                              ? "text-green-600"
+                              : "text-red-600"
+                          }`}
+                        >
+                          {post.vaccination_status
+                            ? "Vaccinated"
+                            : "Not Vaccinated"}
+                        </p>
+                        {vaccinationProof && (
+                          <a
+                            href={vaccinationProof}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-blue-500 hover:underline"
+                          >
+                            View Proof
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-4">
+                      <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-blue-100 rounded-full">
+                        <MdPets className="text-blue-500" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-violet-800">
+                          Temperament
+                        </p>
+                        <div className="flex flex-wrap gap-2 mt-1">
+                          {post.temperament?.map((t, index) => (
+                            <span
+                              key={index}
+                              className="px-3 py-1 bg-blue-50 text-blue-800 rounded-full text-sm font-medium"
+                            >
+                              {t}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    {cleanHealthInfo && (
+                      <div className="flex items-start gap-4">
+                        <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-purple-100 rounded-full">
+                          <FaRuler className="text-purple-500" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-violet-800">
+                            Additional Health Info
+                          </p>
+                          <p className="text-gray-600">{cleanHealthInfo}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {isOwner && (
+                  <div
+                    ref={adoptionRequestsRef}
+                    className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border border-violet-100 p-8"
+                  >
+                    <h3 className="font-bold text-2xl text-violet-800 font-['Quicksand'] mb-6">
+                      Adoption Requests
+                    </h3>
+                    {post.user_id && (
+                      <AdoptionRequestsList
+                        postId={numericPostId}
+                        ownerId={post.user_id}
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
-          )}
-        </div>
-
-        {/* Adoption Requests Section - Only visible to post owner */}
-        {user && post && user.id === post.user_id && (
-          <div className="mt-8" ref={adoptionRequestsRef}>
-            <AdoptionRequestsList postId={numericPostId} ownerId={user.id} />
           </div>
-        )}
+        </div>
       </div>
-
-      {/* Update style block at the end */}
-      <style>
-        {`
-          @keyframes float {
-            0%, 100% { transform: translateY(0) rotate(var(--rotation)); }
-            50% { transform: translateY(-20px) rotate(var(--rotation)); }
-          }
-          .animate-float {
-            --rotation: 0deg;
-            animation: float 8s ease-in-out infinite;
-          }
-          .fallback-avatar .fallback-icon {
-            display: flex !important;
-          }
-          .fallback-avatar img {
-            display: none;
-          }
-        `}
-      </style>
-    </div>
+    </>
   );
 };

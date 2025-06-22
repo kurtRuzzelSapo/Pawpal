@@ -1,6 +1,6 @@
-import React from 'react';
-import { FaUserCircle } from 'react-icons/fa';
-import { formatDistanceToNow } from 'date-fns';
+import React from "react";
+import { FaUserCircle } from "react-icons/fa";
+import { formatDistanceToNow } from "date-fns";
 
 interface Conversation {
   conversation_id: string;
@@ -23,14 +23,17 @@ interface ConversationItemProps {
   onClick: () => void;
 }
 
-export const ConversationItem: React.FC<ConversationItemProps> = ({ conversation, onClick }) => {
+export const ConversationItem: React.FC<ConversationItemProps> = ({
+  conversation,
+  onClick,
+}) => {
   // Format the time
   const formatTime = (timestamp: string) => {
-    if (!timestamp) return '';
-    
+    if (!timestamp) return "";
+
     try {
       return formatDistanceToNow(new Date(timestamp), { addSuffix: true });
-    } catch (e) {
+    } catch {
       return timestamp;
     }
   };
@@ -41,34 +44,37 @@ export const ConversationItem: React.FC<ConversationItemProps> = ({ conversation
     if (conversation.pet_name) {
       return conversation.pet_name;
     }
-    
+
     // Otherwise use other_user_name if it's not an email
-    if (conversation.other_user_name && !conversation.other_user_name.includes('@')) {
+    if (
+      conversation.other_user_name &&
+      !conversation.other_user_name.includes("@")
+    ) {
       return conversation.other_user_name;
     }
-    
+
     // Fallback to the title if not an email
-    if (conversation.title && !conversation.title.includes('@')) {
+    if (conversation.title && !conversation.title.includes("@")) {
       return conversation.title;
     }
-    
+
     // Final fallback
     return "Pet";
   };
 
   return (
-    <div 
+    <div
       onClick={onClick}
       className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer border transition-all duration-300 ${
-        conversation.unread_count > 0 
-          ? 'bg-violet-50 border-violet-200' 
-          : 'hover:bg-gray-50 border-gray-100'
+        conversation.unread_count > 0
+          ? "bg-violet-50 border-violet-200"
+          : "hover:bg-gray-50 border-gray-100"
       }`}
     >
       <div className="relative">
         {conversation.other_user_avatar ? (
-          <img 
-            src={conversation.other_user_avatar} 
+          <img
+            src={conversation.other_user_avatar}
             alt={getDisplayName()}
             className="w-12 h-12 rounded-full object-cover"
           />
@@ -79,14 +85,20 @@ export const ConversationItem: React.FC<ConversationItemProps> = ({ conversation
         )}
         {conversation.unread_count > 0 && (
           <div className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
-            {conversation.unread_count > 9 ? '9+' : conversation.unread_count}
+            {conversation.unread_count > 9 ? "9+" : conversation.unread_count}
           </div>
         )}
       </div>
-      
+
       <div className="flex-1">
         <div className="flex justify-between items-center">
-          <h3 className={`font-medium ${conversation.unread_count > 0 ? 'text-violet-800 font-semibold' : 'text-gray-800'}`}>
+          <h3
+            className={`font-medium ${
+              conversation.unread_count > 0
+                ? "text-violet-800 font-semibold"
+                : "text-gray-800"
+            }`}
+          >
             {getDisplayName()}
           </h3>
           {conversation.last_message_time && (
@@ -95,10 +107,14 @@ export const ConversationItem: React.FC<ConversationItemProps> = ({ conversation
             </span>
           )}
         </div>
-        <p className={`text-sm truncate ${conversation.unread_count > 0 ? 'text-violet-700' : 'text-gray-500'}`}>
-          {conversation.last_message || 'No messages yet'}
+        <p
+          className={`text-sm truncate ${
+            conversation.unread_count > 0 ? "text-violet-700" : "text-gray-500"
+          }`}
+        >
+          {conversation.last_message || "No messages yet"}
         </p>
       </div>
     </div>
   );
-}; 
+};

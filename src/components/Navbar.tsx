@@ -1,11 +1,18 @@
 import { useState, useEffect } from "react";
 import { NavLink, Link, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { FaPaw, FaHome, FaSearch, FaPlusCircle, FaUsers, FaUserPlus, } from "react-icons/fa";
+import {
+  FaPaw,
+  FaHome,
+  FaPlusCircle,
+  FaComments,
+  FaHeart,
+  FaUser,
+  FaSignOutAlt,
+} from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { NotificationBadge } from "./NotificationBadge";
 import { ChatBadge } from "./ChatBadge";
-import type { CSSProperties } from 'react';
 
 const Navbar = () => {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -34,12 +41,7 @@ const Navbar = () => {
       {
         path: "/home",
         label: "Home",
-        icon: <FaHome className="text-xl" />,
-      },
-      {
-        path: "/search",
-        label: "Search Pet",
-        icon: <FaSearch className="text-xl" />,
+        icon: <FaHome className="text-lg" />,
       },
     ];
 
@@ -47,94 +49,113 @@ const Navbar = () => {
       {
         path: "/create",
         label: "Create Post",
-        icon: <FaPlusCircle className="text-xl" />,
+        icon: <FaPlusCircle className="text-lg" />,
       },
       {
-        path: "/communities",
-        label: "Communities",
-        icon: <FaUsers className="text-xl" />,
+        path: "/chat",
+        label: "Chats",
+        icon: <FaComments className="text-lg" />,
       },
-      {
-        path: "/community/create",
-        label: "Create Community",
-        icon: <FaUserPlus className="text-xl" />,
-      },
+     
     ];
 
     return user ? [...baseItems, ...authenticatedItems] : baseItems;
   };
 
-  // Helper: get dropdown style for right alignment
-  const getDropdownStyle = (): CSSProperties => ({
-    right: 0,
-    position: 'fixed',
-    top: '4.5rem', // adjust as needed for navbar height
-    marginRight: '2rem', // adjust to match navbar padding
-    zIndex: 1000,
-  });
+  // Professional Logo Component
+  const PawLogo = () => (
+    <div className="flex items-center gap-3">
+      <div className="relative">
+        <div className="w-12 h-12 bg-gradient-to-br from-violet-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+          <FaPaw className="text-white text-xl" />
+        </div>
+        <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full shadow-sm"></div>
+      </div>
+      <div className="flex flex-col">
+        <span className="text-2xl font-bold bg-gradient-to-r from-violet-700 to-purple-700 text-transparent bg-clip-text font-['Inter'] tracking-tight">
+          PawPal
+        </span>
+        <span className="text-xs text-gray-500 font-['Inter'] font-medium -mt-1">
+          Find your perfect companion
+        </span>
+      </div>
+    </div>
+  );
 
   return (
-    <nav className={`fixed top-0 w-full z-40 transition-all duration-300 ${
-      scrolled 
-        ? "bg-white/90 backdrop-blur-lg shadow-md" 
-        : "bg-white/80 backdrop-blur-md"
-    }`}>
-      <div className="w-full px-2 sm:px-4 md:px-8">
-        <div className="flex justify-between items-center h-16">
-          <NavLink 
-            to="/" 
-            className="font-['Quicksand'] text-xl font-bold text-violet-800 flex items-center gap-2 hover:text-violet-600 transition-colors"
-          >
-            <div className="bg-gradient-to-br from-violet-500 to-blue-500 text-white p-2 rounded-full">
-              <FaPaw />
-            </div>
-            <span className="bg-gradient-to-r from-violet-700 to-blue-600 text-transparent bg-clip-text">
-              SmartPet
-            </span>
+    <nav
+      className={`fixed top-0 w-full z-40 transition-all duration-300 ${
+        scrolled
+          ? "bg-white/98 backdrop-blur-xl shadow-lg border-b border-gray-100"
+          : "bg-white/95 backdrop-blur-lg"
+      }`}
+    >
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center h-16 lg:h-20">
+          {/* Logo Section */}
+          <NavLink to="/" className="flex items-center group">
+            <PawLogo />
           </NavLink>
 
-          {/* Desktop Links */}
-          <div className="hidden md:flex items-center space-x-3">
+          {/* Desktop Navigation */}
+          <div className="hidden lg:flex items-center space-x-1">
             {getNavItems().map((item) => (
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 transform hover:scale-105 ${
+                className={`relative flex items-center px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group ${
                   isActive(item.path)
-                    ? "bg-gradient-to-r from-violet-500 to-blue-500 text-white shadow-md"
-                    : "text-violet-700 hover:bg-violet-50 hover:text-violet-800"
+                    ? "bg-violet-50 text-violet-700 border border-violet-200"
+                    : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
                 }`}
               >
-                <span className={`transition-transform duration-200 ${isActive(item.path) ? "scale-110" : ""}`}>
+                <span className="mr-2.5 transition-transform duration-200 group-hover:scale-105">
                   {item.icon}
                 </span>
-                <span className="ml-2 font-['Poppins']">{item.label}</span>
+                <span className="font-['Inter'] font-medium">{item.label}</span>
+                {isActive(item.path) && (
+                  <div className="absolute -bottom-0.5 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-violet-600 rounded-full"></div>
+                )}
               </Link>
             ))}
           </div>
 
-          {/* Desktop Auth */}
-          <div className="hidden md:flex items-center">
+          {/* Desktop Auth Section */}
+          <div className="hidden lg:flex items-center space-x-4">
             {user ? (
-              <div className="flex items-center space-x-4">
+              <>
                 {/* Notifications */}
-                <NotificationBadge />
-                
-                {/* Chat */}
-                <ChatBadge />
+                <div className="relative">
+                  <NotificationBadge />
+                </div>
 
-                {/* Avatar and Name Dropdown */}
+                {/* Chat */}
+                {/* <div className="relative">
+                  <ChatBadge />
+                </div> */}
+
+                {/* User Profile */}
                 <div className="relative">
                   <button
                     onClick={() => setMenuOpen((open) => !open)}
-                    className="flex items-center space-x-2 focus:outline-none group hover:bg-violet-50 px-3 py-2 rounded-xl transition-colors"
+                    className="flex items-center space-x-3 focus:outline-none group hover:bg-gray-50 px-3 py-2 rounded-lg transition-all duration-200 border border-transparent hover:border-gray-200"
                   >
-                    <span className="text-violet-800 font-medium font-['Poppins']">
-                      {user.user_metadata.full_name || user.email}
-                    </span>
+                    <div className="relative">
+                      <div className="w-9 h-9 bg-gradient-to-br from-violet-600 to-purple-600 rounded-lg flex items-center justify-center shadow-sm">
+                        <FaUser className="text-white text-sm" />
+                      </div>
+                      <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 border border-white rounded-full"></div>
+                    </div>
+                    <div className="text-left">
+                      <p className="text-gray-900 font-medium font-['Inter'] text-sm">
+                        {user.user_metadata.full_name ||
+                          user.email?.split("@")[0]}
+                      </p>
+                      <p className="text-gray-500 text-xs">Online</p>
+                    </div>
                     <svg
-                      className={`w-4 h-4 text-violet-600 transition-transform duration-200 ${
-                        menuOpen ? 'rotate-180' : ''
+                      className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${
+                        menuOpen ? "rotate-180" : ""
                       }`}
                       fill="none"
                       stroke="currentColor"
@@ -148,147 +169,160 @@ const Navbar = () => {
                       />
                     </svg>
                   </button>
+
                   {menuOpen && (
-                    <div
-                      className="w-40 bg-white border border-violet-100 rounded-xl shadow-lg py-2"
-                      style={getDropdownStyle()}
-                      tabIndex={-1}
-                    >
+                    <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-gray-200 py-2 overflow-hidden z-50">
+                      <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
+                        <p className="text-sm font-semibold text-gray-900 font-['Inter']">
+                          {user.user_metadata.full_name || user.email}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          Member since {new Date(user.created_at).getFullYear()}
+                        </p>
+                      </div>
                       <button
-                        className="w-full text-left px-4 py-2 hover:bg-violet-50 text-violet-700 font-['Poppins'] rounded-t-xl"
+                        className="w-full text-left px-4 py-3 hover:bg-gray-50 text-gray-700 font-['Inter'] flex items-center space-x-3 transition-colors duration-200"
                         onClick={() => {
                           setMenuOpen(false);
                           navigate("/profile");
                         }}
                       >
-                        Profile
+                        <FaUser className="text-gray-500" />
+                        <span>My Profile</span>
                       </button>
                       <button
-                        className="w-full text-left px-4 py-2 hover:bg-violet-50 text-red-600 font-['Poppins'] rounded-b-xl"
+                        className="w-full text-left px-4 py-3 hover:bg-red-50 text-red-600 font-['Inter'] flex items-center space-x-3 transition-colors duration-200"
                         onClick={() => {
                           setMenuOpen(false);
                           signOut();
                           navigate("/");
                         }}
                       >
-                        Sign Out
+                        <FaSignOutAlt className="text-red-500" />
+                        <span>Sign Out</span>
                       </button>
                     </div>
                   )}
                 </div>
-              </div>
+              </>
             ) : (
               <button
                 onClick={() => navigate("/login")}
-                className="bg-gradient-to-r from-violet-500 to-blue-500 hover:from-violet-600 hover:to-blue-600 text-white px-5 py-2 rounded-xl font-medium transform hover:scale-105 transition-all duration-200 shadow-md hover:shadow-lg flex items-center gap-2 font-['Poppins']"
+                className="bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white px-6 py-2.5 rounded-lg font-semibold transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2.5 font-['Inter'] group"
               >
-                <FaPaw />
-                Sign In
+                <FaHeart className="text-pink-200 group-hover:scale-110 transition-transform duration-200" />
+                Get Started
               </button>
             )}
           </div>
 
           {/* Mobile Menu Button */}
-          <div className="md:hidden">
+          <div className="lg:hidden">
             <button
               onClick={() => setMenuOpen(!menuOpen)}
-              className="text-violet-700 hover:bg-violet-50 transition-colors p-2 rounded-lg"
+              className="relative p-2 text-gray-700 hover:bg-gray-100 transition-all duration-200 rounded-lg"
               aria-label="Toggle mobile menu"
             >
-              <svg
-                className="h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                {menuOpen ? (
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                ) : (
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 6h16M4 12h16M4 18h16"
-                  />
-                )}
-              </svg>
+              <div className="w-6 h-6 flex flex-col justify-center items-center">
+                <span
+                  className={`block w-5 h-0.5 bg-current transform transition-all duration-200 ${
+                    menuOpen ? "rotate-45 translate-y-1" : "-translate-y-1"
+                  }`}
+                ></span>
+                <span
+                  className={`block w-5 h-0.5 bg-current transition-all duration-200 ${
+                    menuOpen ? "opacity-0" : "opacity-100"
+                  }`}
+                ></span>
+                <span
+                  className={`block w-5 h-0.5 bg-current transform transition-all duration-200 ${
+                    menuOpen ? "-rotate-45 -translate-y-1" : "translate-y-1"
+                  }`}
+                ></span>
+              </div>
             </button>
           </div>
         </div>
 
         {/* Mobile Menu */}
-        <div 
-          className={`md:hidden transition-all duration-300 ease-in-out ${
-            menuOpen 
-              ? "max-h-screen opacity-100 py-4" 
-              : "max-h-0 opacity-0 overflow-hidden"
+        <div
+          className={`lg:hidden transition-all duration-300 ease-in-out overflow-hidden ${
+            menuOpen ? "max-h-screen opacity-100 py-4" : "max-h-0 opacity-0"
           }`}
         >
-          <div className="flex flex-col space-y-2 bg-white/90 backdrop-blur-md rounded-2xl p-2 shadow-md">
-            {getNavItems().map((item) => (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`flex items-center px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
-                  isActive(item.path)
-                    ? "bg-gradient-to-r from-violet-500 to-blue-500 text-white shadow-md"
-                    : "text-violet-700 hover:bg-violet-50 hover:text-violet-800"
-                }`}
-                onClick={() => setMenuOpen(false)}
-              >
-                {item.icon}
-                <span className="ml-2 font-['Poppins']">{item.label}</span>
-              </Link>
-            ))}
-            
-            <div className="h-px bg-violet-100 my-2"></div>
-            
+          <div className="bg-white rounded-xl p-4 shadow-xl border border-gray-200">
+            <div className="space-y-1">
+              {getNavItems().map((item) => (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={`flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+                    isActive(item.path)
+                      ? "bg-violet-50 text-violet-700 border border-violet-200"
+                      : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                  }`}
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <span className="mr-3 transition-transform duration-200">
+                    {item.icon}
+                  </span>
+                  <span className="font-['Inter'] font-medium">
+                    {item.label}
+                  </span>
+                </Link>
+              ))}
+            </div>
+
+            <div className="h-px bg-gray-200 my-4"></div>
+
             {user ? (
-              <>
-                <div className="flex items-center gap-3 px-4 py-3">
-                {user.user_metadata?.avatar_url && (
-                  <NavLink to="/profile" onClick={() => setMenuOpen(false)}>
-                      <div className="relative">
-                        <div className="absolute -inset-0.5 bg-gradient-to-r from-violet-500 to-blue-500 rounded-full opacity-75 transition duration-200 blur"></div>
-                      <img
-                        src={user.user_metadata.avatar_url}
-                        alt="User Avatar"
-                          className="relative w-10 h-10 rounded-full object-cover border-2 border-white"
-                      />
+              <div className="space-y-3">
+                <div className="flex items-center gap-4 px-4 py-3 bg-gray-50 rounded-lg">
+                  <div className="relative">
+                    <div className="w-10 h-10 bg-gradient-to-br from-violet-600 to-purple-600 rounded-lg flex items-center justify-center shadow-sm">
+                      <FaUser className="text-white text-lg" />
                     </div>
-                  </NavLink>
-                )}
-                  <span className="text-violet-800 font-medium font-['Poppins']">{user.user_metadata.full_name || user.email}</span>
-                  <div className="ml-auto flex items-center gap-2">
-                    <ChatBadge />
-                    <NotificationBadge />
+                    <div className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-green-500 border border-white rounded-full"></div>
+                  </div>
+                  <div className="flex-1">
+                    <Link to="/profile">
+                      <p className="text-gray-900 font-semibold font-['Inter']">
+                        {user.user_metadata.full_name ||
+                          user.email?.split("@")[0]}
+                      </p>
+                    </Link>
+                    <p className="text-gray-500 text-sm">Online</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="relative">
+                      <ChatBadge />
+                    </div>
+                    <div className="relative">
+                      <NotificationBadge />
+                    </div>
                   </div>
                 </div>
-                  <button
-                    onClick={() => {
-                      signOut();
-                      setMenuOpen(false);
-                    }}
-                  className="mx-4 my-2 bg-white border border-violet-200 text-violet-700 hover:bg-violet-50 px-4 py-3 rounded-xl font-medium transition-all duration-200 shadow-sm hover:shadow-md font-['Poppins'] flex items-center justify-center"
-                  >
-                    Sign Out
-                  </button>
-              </>
+                <button
+                  onClick={() => {
+                    signOut();
+                    setMenuOpen(false);
+                  }}
+                  className="w-full bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white px-4 py-3 rounded-lg font-semibold transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center gap-3 font-['Inter']"
+                >
+                  <FaSignOutAlt />
+                  Sign Out
+                </button>
+              </div>
             ) : (
               <button
                 onClick={() => {
                   navigate("/login");
                   setMenuOpen(false);
                 }}
-                className="mx-4 my-2 bg-gradient-to-r from-violet-500 to-blue-500 hover:from-violet-600 hover:to-blue-600 text-white px-4 py-3 rounded-xl font-medium transition-all duration-200 shadow-md hover:shadow-lg flex items-center justify-center gap-2 font-['Poppins']"
+                className="w-full bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white px-4 py-3 rounded-lg font-semibold transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center gap-3 font-['Inter']"
               >
-                <FaPaw />
-                Sign In
+                <FaHeart className="text-pink-200" />
+                Get Started
               </button>
             )}
           </div>

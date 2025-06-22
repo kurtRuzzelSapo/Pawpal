@@ -1,6 +1,13 @@
 import { Link } from "react-router-dom";
 import { Post } from "./PostList";
-import { FaPaw, FaMapMarkerAlt, FaSyringe, FaRuler, FaHeartbeat, FaHeart, FaComment, FaCalendarAlt } from "react-icons/fa";
+import {
+  FaPaw,
+  FaMapMarkerAlt,
+  FaSyringe,
+  FaRuler,
+  FaHeartbeat,
+  FaCalendarAlt,
+} from "react-icons/fa";
 import { MdPets } from "react-icons/md";
 
 interface Props {
@@ -11,14 +18,14 @@ export const PostItem = ({ post }: Props) => {
   // Function to get status color
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Available':
-        return 'from-green-400 to-teal-400';
-      case 'Pending':
-        return 'from-yellow-400 to-amber-400';
-      case 'Adopted':
-        return 'from-blue-400 to-sky-400';
+      case "Available":
+        return "from-green-400 to-teal-400";
+      case "Pending":
+        return "from-yellow-400 to-amber-400";
+      case "Adopted":
+        return "from-blue-400 to-sky-400";
       default:
-        return 'from-gray-400 to-gray-500';
+        return "from-gray-400 to-gray-500";
     }
   };
 
@@ -31,12 +38,18 @@ export const PostItem = ({ post }: Props) => {
 
   // Function to get clean health info without the vaccination proof URL
   const getCleanHealthInfo = (healthInfo: string) => {
-    if (!healthInfo) return '';
-    return healthInfo.replace(/Vaccination Proof: https:\/\/[^\s]+/g, '').trim();
+    if (!healthInfo) return "";
+    return healthInfo
+      .replace(/Vaccination Proof: https:\/\/[^\s]+/g, "")
+      .trim();
   };
 
-  const vaccinationProofUrl = post.health_info ? extractVaccinationProof(post.health_info) : null;
-  const cleanHealthInfo = post.health_info ? getCleanHealthInfo(post.health_info) : '';
+  const vaccinationProofUrl = post.health_info
+    ? extractVaccinationProof(post.health_info)
+    : null;
+  const cleanHealthInfo = post.health_info
+    ? getCleanHealthInfo(post.health_info)
+    : "";
 
   return (
     <div className="group">
@@ -72,7 +85,11 @@ export const PostItem = ({ post }: Props) => {
               </div>
             </div>
             {post.status && (
-              <span className={`px-3 py-1 rounded-full text-xs font-medium text-white bg-gradient-to-r ${getStatusColor(post.status)} shadow-sm font-['Poppins']`}>
+              <span
+                className={`px-3 py-1 rounded-full text-xs font-medium text-white bg-gradient-to-r ${getStatusColor(
+                  post.status
+                )} shadow-sm font-['Poppins']`}
+              >
                 {post.status}
               </span>
             )}
@@ -116,7 +133,7 @@ export const PostItem = ({ post }: Props) => {
               {post.vaccination_status !== undefined && (
                 <span className="flex items-center text-violet-700">
                   <FaSyringe className="mr-1 text-violet-500" />
-                  {post.vaccination_status ? 'Vaccinated' : 'Not vaccinated'}
+                  {post.vaccination_status ? "Vaccinated" : "Not vaccinated"}
                 </span>
               )}
             </div>
