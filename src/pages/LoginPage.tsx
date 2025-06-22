@@ -161,12 +161,6 @@ const LoginPage = () => {
             <p className="text-gray-600 mb-4">Create an account?</p>
             <div className="flex justify-center space-x-6">
               <Link
-                to="/signupvet"
-                className="text-violet-600 hover:text-violet-800 font-semibold"
-              >
-                as a Vet
-              </Link>
-              <Link
                 to="/signup"
                 className="text-violet-600 hover:text-violet-800 font-semibold"
               >
