@@ -100,7 +100,7 @@ const SignUpPage = () => {
       </div>
 
       {/* Right Section */}
-      <div className="w-full md:w-1/2 p-6 sm:p-12 flex items-center justify-center">
+      <div className="flex items-center justify-center w-full md:w-1/2 p-6 md:p-12 min-h-screen">
         <div className="w-full max-w-md">
           <h2 className="text-2xl sm:text-3xl font-bold mb-2 text-gray-900">Create your account</h2>
           <p className="text-gray-600 mb-4 sm:mb-8">Join as a pet owner and find your perfect companion</p>
