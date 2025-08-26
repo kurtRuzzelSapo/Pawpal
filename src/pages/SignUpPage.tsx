@@ -67,28 +67,28 @@ const SignUpPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex bg-gray-50">
+    <div className="min-h-screen flex flex-col md:flex-row bg-gray-50">
       {/* Left Section */}
-      <div className="w-1/2 p-12 flex flex-col justify-between bg-white">
+      <div className="hidden md:flex w-full md:w-1/2 p-6 sm:p-12 flex-col justify-between bg-white">
         <div>
           <div className="mb-8">
-            <FaPaw className="text-violet-600 text-4xl" />
+            <FaPaw className="text-violet-600 text-3xl sm:text-4xl" />
           </div>
-          <h1 className="text-5xl font-bold mb-6 text-gray-900">
+          <h1 className="text-2xl sm:text-5xl font-bold mb-6 text-gray-900">
             Find the perfect companion for your family.
           </h1>
-          <p className="text-xl text-gray-600 mb-12">
+          <p className="text-base sm:text-xl text-gray-600 mb-8 sm:mb-12">
             Join our community of pet lovers and find your next furry friend.
           </p>
         </div>
 
         {/* Testimonial Card */}
-        <div className="bg-gray-900 text-white p-8 rounded-2xl">
-          <p className="text-lg mb-6">
+        <div className="bg-gray-900 text-white p-4 sm:p-8 rounded-2xl mt-8 md:mt-0">
+          <p className="text-base sm:text-lg mb-4 sm:mb-6">
             "Thanks to this platform, I found my perfect companion. The process was smooth and the community is amazing!"
           </p>
           <div className="flex items-center">
-            <div className="w-12 h-12 bg-violet-600 rounded-full flex items-center justify-center text-xl font-bold">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-violet-600 rounded-full flex items-center justify-center text-lg sm:text-xl font-bold">
               JD
             </div>
             <div className="ml-4">
@@ -100,10 +100,10 @@ const SignUpPage = () => {
       </div>
 
       {/* Right Section */}
-      <div className="w-1/2 p-12 flex items-center justify-center">
+      <div className="flex items-center justify-center w-full md:w-1/2 p-6 md:p-12 min-h-screen">
         <div className="w-full max-w-md">
-          <h2 className="text-3xl font-bold mb-2 text-gray-900">Create your account</h2>
-          <p className="text-gray-600 mb-8">Join as a pet owner and find your perfect companion</p>
+          <h2 className="text-2xl sm:text-3xl font-bold mb-2 text-gray-900">Create your account</h2>
+          <p className="text-gray-600 mb-4 sm:mb-8">Join as a pet owner and find your perfect companion</p>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>

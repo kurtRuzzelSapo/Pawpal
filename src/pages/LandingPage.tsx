@@ -1,10 +1,12 @@
 import { useNavigate, Link } from "react-router-dom";
-import { useEffect, useRef, RefObject } from "react";
+import { useEffect, useRef, RefObject, useState } from "react";
 import {
   FaPaw,
   FaHeart,
   FaHandHoldingHeart,
   FaUserFriends,
+  FaBars,
+  FaTimes,
 } from "react-icons/fa";
 import { useAuth } from "../context/AuthContext";
 
@@ -16,6 +18,8 @@ const LandingPage = () => {
   const servicesRef = useRef<HTMLDivElement>(null);
   const adoptionRef = useRef<HTMLDivElement>(null);
   const contactRef = useRef<HTMLDivElement>(null);
+
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -55,14 +59,25 @@ const LandingPage = () => {
       {/* Navigation Bar */}
       <nav className="bg-white shadow-sm fixed w-full z-50">
         <div className="w-full px-2 sm:px-4 md:px-8">
-          <div className="flex justify-between h-16">
+          <div className="flex justify-between h-16 items-center">
             <div className="flex items-center">
               <FaPaw className="text-indigo-600 text-3xl mr-2" />
               <span className="font-bold text-2xl text-gray-800 font-['Quicksand']">
                 Pawpal
               </span>
             </div>
-            <div className="flex items-center space-x-4">
+            {/* Hamburger Icon for mobile */}
+            <div className="md:hidden flex items-center">
+              <button
+                onClick={() => setMenuOpen((prev) => !prev)}
+                className="text-2xl text-indigo-700 focus:outline-none"
+                aria-label="Toggle menu"
+              >
+                {menuOpen ? <FaTimes /> : <FaBars />}
+              </button>
+            </div>
+            {/* Desktop Menu */}
+            <div className="hidden md:flex items-center space-x-4">
               <button
                 onClick={() => scrollToSection(aboutRef)}
                 className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-indigo-600 transition-all duration-200 font-['Poppins']"
@@ -87,16 +102,13 @@ const LandingPage = () => {
               >
                 Contact
               </button>
-
               <div className="h-6 w-px bg-gray-200"></div>
-
               <Link
                 to="/login"
                 className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium text-indigo-600 hover:text-indigo-700 transition-all duration-200 font-['Poppins']"
               >
                 Login
               </Link>
-
               <div className="flex items-center space-x-2">
                 <Link
                   to="/signup"
@@ -104,21 +116,60 @@ const LandingPage = () => {
                 >
                   Register
                 </Link>
-                {/* <Link 
-                  to="/signupvet"
-                  className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 transition-all duration-200 shadow-sm hover:shadow-md font-['Poppins']"
-                >
-                  <FaUserMd className="mr-2" />
-                  Register as Vet
-                </Link> */}
               </div>
             </div>
           </div>
+          {/* Mobile Dropdown Menu INSIDE NAV, ABSOLUTE POSITIONED */}
+          {menuOpen && (
+            <div className="md:hidden absolute top-full left-0 w-full z-50 bg-white shadow-lg border-t border-gray-100 animate-fade-in-up">
+              <div className="flex flex-col items-center py-4 space-y-2">
+                <button
+                  onClick={() => { setMenuOpen(false); scrollToSection(aboutRef); }}
+                  className="w-full text-left px-6 py-2 rounded-md text-base font-medium text-gray-700 hover:text-indigo-600 transition-all duration-200 font-['Poppins']"
+                >
+                  About
+                </button>
+                <button
+                  onClick={() => { setMenuOpen(false); scrollToSection(servicesRef); }}
+                  className="w-full text-left px-6 py-2 rounded-md text-base font-medium text-gray-700 hover:text-indigo-600 transition-all duration-200 font-['Poppins']"
+                >
+                  Services
+                </button>
+                <button
+                  onClick={() => { setMenuOpen(false); scrollToSection(adoptionRef); }}
+                  className="w-full text-left px-6 py-2 rounded-md text-base font-medium text-gray-700 hover:text-indigo-600 transition-all duration-200 font-['Poppins']"
+                >
+                  Adoption
+                </button>
+                <button
+                  onClick={() => { setMenuOpen(false); scrollToSection(contactRef); }}
+                  className="w-full text-left px-6 py-2 rounded-md text-base font-medium text-gray-700 hover:text-indigo-600 transition-all duration-200 font-['Poppins']"
+                >
+                  Contact
+                </button>
+                <div className="h-px w-4/5 bg-gray-200 my-2"></div>
+                <Link
+                  to="/login"
+                  onClick={() => setMenuOpen(false)}
+                  className="inline-flex items-center w-4/5 justify-center px-4 py-2 rounded-lg text-base font-medium text-indigo-600 hover:text-indigo-700 transition-all duration-200 font-['Poppins']"
+                >
+                  Login
+                </Link>
+                <Link
+                  to="/signup"
+                  onClick={() => setMenuOpen(false)}
+                  className="inline-flex items-center w-4/5 justify-center px-4 py-2 rounded-lg text-base font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition-all duration-200 shadow-sm hover:shadow-md font-['Poppins']"
+                >
+                  Register
+                </Link>
+              </div>
+            </div>
+          )}
         </div>
       </nav>
 
       {/* Hero Section */}
-      <div className="relative min-h-screen flex items-center justify-center pt-16 bg-gradient-to-br from-indigo-600/90 to-indigo-800/90 overflow-hidden">
+      <div className="relative min-h-screen flex flex-col items-center justify-center pt-24 md:pt-16 bg-gradient-to-br from-indigo-600/90 to-indigo-800/90 overflow-hidden">
         {/* Background Image */}
         <div className="absolute inset-0 z-0">
           <img
@@ -128,31 +179,31 @@ const LandingPage = () => {
           />
           <div className="absolute inset-0 bg-gradient-to-b from-indigo-900/60 via-indigo-800/70 to-indigo-700/80"></div>
         </div>
-        <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
+        <div className="relative z-10 text-center px-2 sm:px-4 max-w-full sm:max-w-4xl mx-auto">
           <div className="flex flex-col items-center scroll-animation">
             <div className="text-center mb-8">
-              <h1 className="text-8xl font-bold text-white font-['Quicksand'] tracking-wide mb-4 animate-fade-in">
+              <h1 className="text-4xl sm:text-6xl md:text-8xl font-bold text-white font-['Quicksand'] tracking-wide mb-4 animate-fade-in">
                 Adopt l
-                <span className="inline-flex items-center justify-center rounded-full bg-emerald-400 w-24 h-24 text-4xl animate-bounce">
+                <span className="inline-flex items-center justify-center rounded-full bg-emerald-400 w-16 h-16 sm:w-24 sm:h-24 text-2xl sm:text-4xl animate-bounce">
                   5k+
                 </span>
                 ve,
               </h1>
-              <h1 className="text-8xl font-bold text-white font-['Quicksand'] tracking-wide animate-fade-in delay-200">
+              <h1 className="text-4xl sm:text-6xl md:text-8xl font-bold text-white font-['Quicksand'] tracking-wide animate-fade-in delay-200">
                 F
-                <span className="inline-flex items-center justify-center rounded-full bg-rose-400 w-16 h-16 text-3xl animate-bounce delay-300">
+                <span className="inline-flex items-center justify-center rounded-full bg-rose-400 w-10 h-10 sm:w-16 sm:h-16 text-xl sm:text-3xl animate-bounce delay-300">
                   2k+
                 </span>
                 ster Happiness
               </h1>
             </div>
-            <p className="text-xl text-white/90 mb-8 max-w-2xl animate-fade-in delay-500">
+            <p className="text-base sm:text-xl text-white/90 mb-8 max-w-xs sm:max-w-2xl animate-fade-in delay-500">
               We Are well-equipped and well-prepared to protect your heath and
               hygiene while serve you. Our preparations include-
             </p>
             <button
               onClick={handleGetStarted}
-              className="bg-emerald-500 text-white px-8 py-3 rounded-md text-lg font-medium hover:bg-emerald-600 transition-all duration-300 shadow-lg hover:shadow-xl animate-fade-in delay-700"
+              className="bg-emerald-500 text-white px-6 sm:px-8 py-3 rounded-md text-base sm:text-lg font-medium hover:bg-emerald-600 transition-all duration-300 shadow-lg hover:shadow-xl animate-fade-in delay-700"
             >
               Get Started
             </button>
@@ -161,18 +212,18 @@ const LandingPage = () => {
       </div>
 
       {/* About Section */}
-      <div ref={aboutRef} className="py-24 px-4 bg-white scroll-animation">
+      <div ref={aboutRef} className="py-16 sm:py-24 px-2 sm:px-4 bg-white scroll-animation">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 font-['Quicksand'] mb-4">
+          <div className="text-center mb-10 sm:mb-16">
+            <h2 className="text-2xl sm:text-4xl font-bold text-gray-900 font-['Quicksand'] mb-4">
               About Us
             </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            <p className="text-base sm:text-lg text-gray-600 max-w-xs sm:max-w-2xl mx-auto">
               We're dedicated to connecting loving homes with pets in need. Our
               mission is to make pet adoption simple, enjoyable, and rewarding.
             </p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 sm:gap-12">
             <div className="text-center">
               <div className="bg-indigo-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                 <FaHeart className="text-2xl text-indigo-600" />
@@ -208,18 +259,18 @@ const LandingPage = () => {
       </div>
 
       {/* Services Section */}
-      <div ref={servicesRef} className="py-24 px-4 bg-gray-50 scroll-animation">
+      <div ref={servicesRef} className="py-16 sm:py-24 px-2 sm:px-4 bg-gray-50 scroll-animation">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 font-['Quicksand'] mb-4">
+          <div className="text-center mb-10 sm:mb-16">
+            <h2 className="text-2xl sm:text-4xl font-bold text-gray-900 font-['Quicksand'] mb-4">
               Our Services
             </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            <p className="text-base sm:text-lg text-gray-600 max-w-xs sm:max-w-2xl mx-auto">
               We provide comprehensive services to ensure successful pet
               adoptions and happy families.
             </p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
             <div className="bg-white p-8 rounded-2xl shadow-lg">
               <h3 className="text-2xl font-semibold mb-4">
                 Pet Adoption Platform
@@ -255,18 +306,18 @@ const LandingPage = () => {
       {/* Adoption Section */}
       <div
         ref={adoptionRef}
-        className="py-24 px-4 bg-gradient-to-b from-gray-50 to-gray-100 scroll-animation"
+        className="py-16 sm:py-24 px-2 sm:px-4 bg-gradient-to-b from-gray-50 to-gray-100 scroll-animation"
       >
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 font-['Quicksand'] mb-4">
+          <div className="text-center mb-10 sm:mb-16">
+            <h2 className="text-2xl sm:text-4xl font-bold text-gray-900 font-['Quicksand'] mb-4">
               Available for Adoption
             </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            <p className="text-base sm:text-lg text-gray-600 max-w-xs sm:max-w-2xl mx-auto">
               Meet our wonderful pets waiting for their forever homes.
             </p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
             {/* Dogs */}
             <div className="rounded-2xl overflow-hidden bg-white p-4 shadow-lg hover:shadow-xl transition-all duration-300">
               <div className="relative h-64 rounded-xl overflow-hidden">
@@ -316,18 +367,18 @@ const LandingPage = () => {
       </div>
 
       {/* Contact Section */}
-      <div ref={contactRef} className="py-24 px-4 bg-white scroll-animation">
+      <div ref={contactRef} className="py-16 sm:py-24 px-2 sm:px-4 bg-white scroll-animation">
         <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 font-['Quicksand'] mb-4">
+          <div className="text-center mb-10 sm:mb-16">
+            <h2 className="text-2xl sm:text-4xl font-bold text-gray-900 font-['Quicksand'] mb-4">
               Get in Touch
             </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            <p className="text-base sm:text-lg text-gray-600 max-w-xs sm:max-w-2xl mx-auto">
               Have questions about adoption? We're here to help and connect!
             </p>
           </div>
-          <div className="bg-gradient-to-br from-indigo-50 to-violet-50 p-8 rounded-2xl shadow-lg border border-indigo-100">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+          <div className="bg-gradient-to-br from-indigo-50 to-violet-50 p-4 sm:p-8 rounded-2xl shadow-lg border border-indigo-100">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 sm:gap-12">
               <div>
                 <h3 className="text-2xl font-semibold mb-6 text-indigo-800 font-['Quicksand']">
                   Contact Information
