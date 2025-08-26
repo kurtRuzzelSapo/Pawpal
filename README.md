@@ -7,7 +7,7 @@ It’s designed to bring joy and convenience, whether you’re searching for a f
 
 ## 🚀 Live Demo
 
-👉 [Try it here](https://pawpal-omega.vercel.app/)
+👉 [Try it here!](https://pawpal-omega.vercel.app/)
 
 ---
 
@@ -38,8 +38,8 @@ Here’s a quick look at some of the **fun and useful features** of Smart Pet �
 ### 🔑 Authentication – Secure & Simple
 Sign up or log in effortlessly with email-based authentication.  
 <p align="center">
-  <img src="public/images/readme/login.png" alt="Login Page" width="400"/>
-  <img src="public/images/readme/check_email.png" alt="Check Email" width="400"/>
+  <img src="public/readme/login.png" alt="Login Page" width="400"/>
+  <img src="public/readme/check_email.png" alt="Check Email" width="400"/>
 </p>
 
 ---
@@ -47,7 +47,7 @@ Sign up or log in effortlessly with email-based authentication.
 ### 🏠 Landing Page – Friendly Welcome
 Our **landing page** greets you with a clean and modern design, making it easy to navigate.  
 <p align="center">
-  <img src="public/images/readme/landing_page.png" alt="Landing Page" width="600"/>
+  <img src="public/readme/landing_page.png" alt="Landing Page" width="600"/>
 </p>
 
 ---
@@ -55,8 +55,8 @@ Our **landing page** greets you with a clean and modern design, making it easy t
 ### 🐾 Pet Features – Share & Adopt
 Easily create posts about pets available for adoption or share updates about your furry friends.  
 <p align="center">
-  <img src="public/images/readme/create post.png" alt="Create Post" width="400"/>
-  <img src="public/images/readme/create post mobile.png" alt="Create Post Mobile" width="200"/>
+  <img src="public/readme/create post.png" alt="Create Post" width="400"/>
+  <img src="public/readme/create post mobile.png" alt="Create Post Mobile" width="200"/>
 </p>
 
 ---
@@ -64,8 +64,8 @@ Easily create posts about pets available for adoption or share updates about you
 ### 💬 Chat System – Connect with Pet Lovers
 Stay connected with other users using our **real-time chat feature**. It’s fun, fast, and mobile-friendly!  
 <p align="center">
-  <img src="public/images/readme/chats feature.png" alt="Chats Feature" width="400"/>
-  <img src="public/images/readme/mobile chat.png" alt="Mobile Chat" width="200"/>
+  <img src="public/readme/chats feature.png" alt="Chats Feature" width="400"/>
+  <img src="public/readme/mobile chat.png" alt="Mobile Chat" width="200"/>
 </p>
 
 ---
@@ -73,8 +73,8 @@ Stay connected with other users using our **real-time chat feature**. It’s fun
 ### 👤 Profile – Your Personal Pet Space
 Manage your personal info, see your posts, and keep track of your adoption activity.  
 <p align="center">
-  <img src="public/images/readme/profile.png" alt="Profile Page" width="400"/>
-  <img src="public/images/readme/profile mobile.png" alt="Profile Mobile" width="200"/>
+  <img src="public/readme/profile.png" alt="Profile Page" width="400"/>
+  <img src="public/readme/profile mobile.png" alt="Profile Mobile" width="200"/>
 </p>
 
 ---
@@ -82,7 +82,7 @@ Manage your personal info, see your posts, and keep track of your adoption activ
 ### 📧 Gmail Integration – Stay Updated
 Receive important notifications directly through Gmail so you never miss a chance to adopt or connect.  
 <p align="center">
-  <img src="public/images/readme/gmail.png" alt="Gmail Notification" width="400"/>
+  <img src="public/readme/gmail.png" alt="Gmail Notification" width="400"/>
 </p>
 
 ---
