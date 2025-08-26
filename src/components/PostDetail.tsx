@@ -17,6 +17,7 @@ import { useAuth } from "../context/AuthContext";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { toast } from "react-hot-toast";
 import { AdoptionRequestsList } from "./AdoptionRequestsList";
+import { MessageButton } from "./MessageButton";
 
 interface ModalProps {
   isOpen: boolean;
@@ -601,7 +602,13 @@ export const PostDetail = ({ postId }: { postId: string }) => {
                         </p>
                         <button
                           onClick={() =>
-                            navigate(`/chat?otherUserId=${post.user_id}`)
+                            navigate("/chat", {
+                              state: {
+                                otherUserId: post.user_id,
+                                postId: post.id,
+                                petName: post.name,
+                              },
+                            })
                           }
                           className="mt-4 w-full flex items-center justify-center gap-3 px-5 py-3 bg-gradient-to-br from-indigo-500 to-purple-500 text-white rounded-full hover:from-indigo-600 hover:to-purple-600 transition-all shadow-lg"
                         >
@@ -643,6 +650,22 @@ export const PostDetail = ({ postId }: { postId: string }) => {
                         </span>
                       </button>
                     )}
+                  </div>
+                )}
+
+                {/* Message Button */}
+                {!isOwner && user && post.user_id && (
+                  <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border border-violet-100 p-6">
+                    <div className="text-center">
+                      <p className="text-sm text-gray-500 mb-4">
+                        Have questions about this pet?
+                      </p>
+                      <MessageButton
+                        receiverId={post.user_id}
+                        postId={post.id}
+                        petName={post.name}
+                      />
+                    </div>
                   </div>
                 )}
                 {/* Additional Photos */}
