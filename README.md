@@ -1,218 +1,95 @@
 
 
----
-
 # Smart Pet – Pet Finding Application 🐾
 
-A modern web application built with **React**, **TypeScript**, and **Supabase** to help users find, manage, and adopt pets.
+Smart Pet is a **friendly and fun web application** built with **React**, **TypeScript**, and **Supabase** to help pet lovers **find, manage, and adopt pets** with ease.  
+It’s designed to bring joy and convenience, whether you’re searching for a furry companion, chatting with other pet owners, or sharing pet adoption stories.  
 
 ## 🚀 Live Demo
 
-https://pawpal-omega.vercel.app/
-
+👉 [Try it here](https://pawpal-omega.vercel.app/)
 
 ---
 
 ## 🧱 Tech Stack
 
 ### Frontend
-
-* ⚛️ React 19
-* 🧠 TypeScript
-* ⚡ Vite
-* 🎨 Tailwind CSS
-* 🔀 React Router
-* 📦 React Query
+- ⚛️ React 19
+- 🧠 TypeScript
+- ⚡ Vite
+- 🎨 Tailwind CSS
+- 🔀 React Router
+- 📦 React Query
 
 ### Backend (via Supabase)
+- 🐘 PostgreSQL Database
+- 🔐 Authentication
+- 📁 File Storage
+- 🔄 Real-time Subscriptions
 
-* 🐘 PostgreSQL Database
-* 🔐 Authentication
-* 📁 File Storage
-* 🔄 Real-time Subscriptions
 
-### Testing
 
-* 🧪 Jest
-* 🧼 React Testing Library
-* 🧭 Vitest
+---
+
+## 📸 Screenshots  
+
+Here’s a quick look at some of the **fun and useful features** of Smart Pet 👇  
+
+### 🔑 Authentication – Secure & Simple
+Sign up or log in effortlessly with email-based authentication.  
+<p align="center">
+  <img src="public/images/readme/login.png" alt="Login Page" width="400"/>
+  <img src="public/images/readme/check_email.png" alt="Check Email" width="400"/>
+</p>
+
+---
+
+### 🏠 Landing Page – Friendly Welcome
+Our **landing page** greets you with a clean and modern design, making it easy to navigate.  
+<p align="center">
+  <img src="public/images/readme/landing_page.png" alt="Landing Page" width="600"/>
+</p>
+
+---
+
+### 🐾 Pet Features – Share & Adopt
+Easily create posts about pets available for adoption or share updates about your furry friends.  
+<p align="center">
+  <img src="public/images/readme/create post.png" alt="Create Post" width="400"/>
+  <img src="public/images/readme/create post mobile.png" alt="Create Post Mobile" width="200"/>
+</p>
+
+---
+
+### 💬 Chat System – Connect with Pet Lovers
+Stay connected with other users using our **real-time chat feature**. It’s fun, fast, and mobile-friendly!  
+<p align="center">
+  <img src="public/images/readme/chats feature.png" alt="Chats Feature" width="400"/>
+  <img src="public/images/readme/mobile chat.png" alt="Mobile Chat" width="200"/>
+</p>
+
+---
+
+### 👤 Profile – Your Personal Pet Space
+Manage your personal info, see your posts, and keep track of your adoption activity.  
+<p align="center">
+  <img src="public/images/readme/profile.png" alt="Profile Page" width="400"/>
+  <img src="public/images/readme/profile mobile.png" alt="Profile Mobile" width="200"/>
+</p>
+
+---
+
+### 📧 Gmail Integration – Stay Updated
+Receive important notifications directly through Gmail so you never miss a chance to adopt or connect.  
+<p align="center">
+  <img src="public/images/readme/gmail.png" alt="Gmail Notification" width="400"/>
+</p>
 
 ---
 
 ## 🛠️ Getting Started
 
 ### 1. Clone the Repository
-
 ```bash
 git clone [repository-url]
 cd smart-pet
-```
-
-### 2. Install Dependencies
-
-```bash
-npm install
-```
-
-### 3. Set Up Environment Variables
-
-```bash
-cp .env.example .env
-```
-
-> Edit `.env` and replace placeholders with your Supabase credentials:
-
-* `VITE_SUPABASE_URL`
-* `VITE_SUPABASE_ANON_KEY`
-
-### 4. Start Development Server
-
-```bash
-npm run dev
-```
-
----
-
-## 🚢 Deployment
-
-### Prerequisites
-
-* Supabase project with Auth and Database set up
-* npm or yarn
-* (Optional) Vercel CLI for deployment
-
-### Deploy to Vercel
-
-```bash
-npm install -g vercel
-vercel login
-vercel
-```
-
-### Manual Deployment
-
-```bash
-npm run build      # Build production files
-npm run preview    # Test build locally
-```
-
-> Upload the contents of the `dist` folder to your preferred static hosting provider.
-
----
-
-## 🔎 Testing
-
-### Run All Tests
-
-```bash
-npm test
-```
-
-### Run Tests with Coverage
-
-```bash
-npm run test:coverage
-```
-
----
-
-## 📈 Performance Monitoring
-
-### 1. Lighthouse Audit
-
-* Open Chrome DevTools
-* Go to the **Lighthouse** tab
-* Run audit for **Performance**, **Accessibility**, and **SEO**
-
-### 2. API Performance
-
-* Use DevTools → **Network** tab to check response times
-* Monitor Supabase metrics via the Supabase Dashboard
-
----
-
-## 🐞 Bug Tracking
-
-We use **GitHub Issues** for tracking bugs and feature requests.
-
-To report a bug:
-
-1. Go to the [Issues](../../issues) tab
-2. Click **New Issue**
-3. Use the **Bug Report** template
-4. Add any relevant labels
-
----
-
-## 🤝 Contributing
-
-### 1. Create a New Branch
-
-```bash
-git checkout -b feature/your-feature
-```
-
-### 2. Make Changes and Commit
-
-```bash
-git add .
-git commit -m "feat: add new feature"
-```
-
-### 3. Push and Open a Pull Request
-
-```bash
-git push origin feature/your-feature
-```
-
----
-
-## 📄 License
-
-\[📝 Add your license information here]
-
----
-
-## 📚 Additional Info: ESLint Configuration (Advanced)
-
-For enhanced code quality with TypeScript-aware linting, consider expanding your ESLint configuration:
-
-```ts
-export default tseslint.config({
-  extends: [
-    ...tseslint.configs.recommendedTypeChecked,
-    // Or use stricter rules:
-    // ...tseslint.configs.strictTypeChecked,
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
-```
-
-You can also include plugins for React-specific rules:
-
-```ts
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default tseslint.config({
-  plugins: {
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
-```
-
----
-
-
-
