@@ -15,19 +15,7 @@ interface Props {
 }
 
 export const PostItem = ({ post }: Props) => {
-  // Function to get status color
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Available":
-        return "from-green-400 to-teal-400";
-      case "Pending":
-        return "from-yellow-400 to-amber-400";
-      case "Adopted":
-        return "from-blue-400 to-sky-400";
-      default:
-        return "from-gray-400 to-gray-500";
-    }
-  };
+  
 
   // Function to extract vaccination proof URL from health_info
   const extractVaccinationProof = (healthInfo: string) => {

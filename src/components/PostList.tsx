@@ -78,18 +78,7 @@ export const PostList: React.FC<PostListProps> = ({ posts: initialPosts }) => {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Available":
-        return "from-green-400 to-teal-400";
-      case "pending":
-        return "from-yellow-400 to-amber-400";
-      case "approved":
-        return "from-blue-400 to-sky-400";
-      default:
-        return "from-gray-400 to-gray-500";
-    }
-  };
+  
 
   if (loading) {
     return (
