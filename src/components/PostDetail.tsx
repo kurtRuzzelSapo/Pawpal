@@ -356,6 +356,33 @@ const cancelAdoptionRequest = async (postId: number, requesterId: string) => {
   }
 };
 
+const VaccinationProofModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  imageUrl: string;
+}> = ({ isOpen, onClose, imageUrl }) => {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex justify-center items-center z-50">
+      <div className="bg-white rounded-lg p-6 shadow-2xl relative max-w-lg w-full">
+        <button
+          onClick={onClose}
+          className="absolute top-2 right-2 text-gray-500 hover:text-gray-700 text-5xl font-bold p-2"
+          style={{ lineHeight: "1", width: "2.5rem", height: "2.5rem" }}
+        >
+          &times;
+        </button>
+        <h2 className="text-xl font-bold mb-4">Vaccination Proof</h2>
+        <img
+          src={imageUrl}
+          alt="Vaccination Proof"
+          className="w-full h-auto rounded-lg"
+        />
+      </div>
+    </div>
+  );
+};
+
 export const PostDetail = ({ postId }: { postId: string }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -366,6 +393,7 @@ export const PostDetail = ({ postId }: { postId: string }) => {
   const [requestStatus, setRequestStatus] = useState<string | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
+  const [isVaccinationModalOpen, setIsVaccinationModalOpen] = useState(false);
 
   // Create refs for sections we want to scroll to
   const adoptionRequestsRef = useRef<HTMLDivElement>(null);
@@ -534,6 +562,11 @@ export const PostDetail = ({ postId }: { postId: string }) => {
 
   return (
     <>
+      <VaccinationProofModal
+        isOpen={isVaccinationModalOpen}
+        onClose={() => setIsVaccinationModalOpen(false)}
+        imageUrl={vaccinationProof || ""}
+      />
       <DeleteConfirmationModal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
@@ -769,14 +802,13 @@ export const PostDetail = ({ postId }: { postId: string }) => {
                             : "Not Vaccinated"}
                         </p>
                         {vaccinationProof && (
-                          <a
-                            href={vaccinationProof}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <button
+                            type="button"
+                            onClick={() => setIsVaccinationModalOpen(true)}
                             className="text-sm text-blue-500 hover:underline"
                           >
                             View Proof
-                          </a>
+                          </button>
                         )}
                       </div>
                     </div>
