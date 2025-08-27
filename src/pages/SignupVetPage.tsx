@@ -26,7 +26,7 @@ const SignupVetPage = () => {
 
     // Validate password strength
     if (password.length < 6) {
-      setError("Password must be at least 6 characters long");
+      setError("Password must be at least 8 characters long");
       setLoading(false);
       return;
     }
@@ -128,7 +128,7 @@ const SignupVetPage = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full pl-10 px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
-                  placeholder="Create a password (min. 6 characters)"
+                  placeholder="Create a password (min. 8 characters)"
                   required
                   minLength={6}
                 />

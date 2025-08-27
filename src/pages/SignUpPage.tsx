@@ -1,40 +1,50 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { FaPaw, FaLock, FaEnvelope } from "react-icons/fa";
+import { FaPaw, FaLock, FaEnvelope, FaUser } from "react-icons/fa";
 import { useAuth } from "../context/AuthContext";
 
 const SignUpPage = () => {
   const navigate = useNavigate();
   const { signUpWithEmail } = useAuth();
   const [email, setEmail] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
 
-    // Validate passwords match
+    if (!firstName.trim() || !lastName.trim()) {
+      setError("First name and last name are required");
+      setLoading(false);
+      return;
+    }
+
     if (password !== confirmPassword) {
       setError("Passwords do not match");
       setLoading(false);
       return;
     }
 
-    // Validate password strength
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters long");
+    if (!passwordRegex.test(password)) {
+      setError(
+        "Password must be at least 8 characters and include lowercase, uppercase, number, and special character."
+      );
       setLoading(false);
       return;
     }
 
     try {
-      const { success, error } = await signUpWithEmail(email, password);
+      // Pass firstName and lastName to your signUpWithEmail function if supported
+      const { success, error } = await signUpWithEmail(email, password, { firstName, lastName });
 
-      // Always redirect to verify-email, regardless of error type
       if (success) {
         navigate("/verify-email", {
           state: {
@@ -43,7 +53,6 @@ const SignUpPage = () => {
           }
         });
       } else {
-        // If the error is 'email_not_confirmed', still redirect
         if (error === 'Email not confirmed' || error === 'email_not_confirmed') {
           navigate("/verify-email", {
             state: {
@@ -106,6 +115,45 @@ const SignUpPage = () => {
           <p className="text-gray-600 mb-4 sm:mb-8">Join as a pet owner and find your perfect companion</p>
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="flex gap-4">
+              <div className="w-1/2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  First Name
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <FaUser className="text-gray-400" />
+                  </div>
+                  <input
+                    type="text"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    className="w-full pl-10 px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                    placeholder="First name"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="w-1/2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Last Name
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <FaUser className="text-gray-400" />
+                  </div>
+                  <input
+                    type="text"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    className="w-full pl-10 px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                    placeholder="Last name"
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Email Address
@@ -138,7 +186,7 @@ const SignUpPage = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full pl-10 px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
-                  placeholder="Create a password (min. 6 characters)"
+                  placeholder="Create a password (min. 8 characters)"
                   required
                   minLength={6}
                 />
@@ -204,4 +252,4 @@ const SignUpPage = () => {
   );
 };
 
-export default SignUpPage; 
+export default SignUpPage;
