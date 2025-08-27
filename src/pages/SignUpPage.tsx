@@ -42,8 +42,8 @@ const SignUpPage = () => {
     }
 
     try {
-      // Pass firstName and lastName to your signUpWithEmail function if supported
-      const { success, error } = await signUpWithEmail(email, password, { firstName, lastName });
+      // signUpWithEmail currently accepts (email, password, role?)
+      const { success, error } = await signUpWithEmail(email, password, "user");
 
       if (success) {
         navigate("/verify-email", {

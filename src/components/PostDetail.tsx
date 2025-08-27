@@ -30,7 +30,7 @@ interface DeleteModalProps extends ModalProps {
 
 interface UpdateModalProps extends ModalProps {
   post: Post | null;
-  onUpdate: (updates: { name: string; content: string }) => void;
+  onUpdate: (updates: { name: string; content: string; status?: string }) => void;
 }
 
 const DeleteConfirmationModal: React.FC<DeleteModalProps> = ({
@@ -92,7 +92,7 @@ const UpdatePostModal: React.FC<UpdateModalProps> = ({
   };
 
   const handleSave = () => {
-    onUpdate({ ...post, status });
+    onUpdate({ name, content, status });
     onClose();
   };
 
