@@ -116,101 +116,94 @@ export const PostList: React.FC<PostListProps> = ({ posts: initialPosts }) => {
           </Link>
         </div>
       ) : (
-        posts.map((post, index) => (
-          <div
-            key={post.id}
-            className="group rounded-2xl overflow-hidden bg-white shadow-lg hover:shadow-xl transition-all duration-300 ease-in-out hover:-translate-y-1"
-            style={{
-              opacity: 0,
-              animation: `fade-in-up 0.5s ease-out forwards`,
-              animationDelay: `${index * 100}ms`,
-            }}
-          >
-            <Link to={`/post/${post.id}`} className="block h-full">
-              <div className="w-full h-full flex flex-col">
-                {/* Image Section */}
-                <div className="relative overflow-hidden">
-                  <img
-                    src={post.image_url || "/default-pet.jpg"}
-                    alt={post.name || "Pet"}
-                    className="w-full object-cover h-52 transition-transform duration-500 ease-in-out group-hover:scale-110"
-                  />
-                  {post.status && (
-                    <span
-                      className={`absolute top-3 right-3 px-3 py-1 rounded-full text-xs font-bold text-white bg-gradient-to-r ${getStatusColor(
-                        post.status
-                      )} shadow-lg uppercase tracking-wider`}
-                    >
-                      {post.status}
-                    </span>
-                  )}
-                </div>
+        posts
+          .filter(post => !post.status || post.status.toLowerCase() !== "adopted")
+          .map((post, index) => (
+            <div
+              key={post.id}
+              className="group rounded-2xl overflow-hidden bg-white shadow-lg hover:shadow-xl transition-all duration-300 ease-in-out hover:-translate-y-1"
+              style={{
+                opacity: 0,
+                animation: `fade-in-up 0.5s ease-out forwards`,
+                animationDelay: `${index * 100}ms`,
+              }}
+            >
+              <Link to={`/post/${post.id}`} className="block h-full">
+                <div className="w-full h-full flex flex-col">
+                  {/* Image Section */}
+                  <div className="relative overflow-hidden">
+                    <img
+                      src={post.image_url || "/default-pet.jpg"}
+                      alt={post.name || "Pet"}
+                      className="w-full object-cover h-52 transition-transform duration-500 ease-in-out group-hover:scale-110"
+                    />
+                  </div>
 
-                {/* Content Section */}
-                <div className="p-4 flex-1 flex flex-col">
-                  {/* Name and Breed */}
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-800 font-['Quicksand'] truncate">
-                      {post.name || "Unnamed Pet"}
-                    </h3>
-                    {post.breed && (
-                      <p className="text-sm text-gray-500 font-['Poppins'] flex items-center truncate">
-                        <MdPets className="mr-2 flex-shrink-0 text-gray-400" />
-                        {post.breed}
+                  {/* Content Section */}
+                  <div className="p-4 flex-1 flex flex-col">
+                    {/* Name and Breed */}
+                    <div>
+                      <h3 className="text-xl font-bold text-gray-800 font-['Quicksand'] truncate">
+                        {post.name || "Unnamed Pet"}
+                      </h3>
+                      {post.breed && (
+                        <p className="text-sm text-gray-500 font-['Poppins'] flex items-center truncate">
+                          <MdPets className="mr-2 flex-shrink-0 text-gray-400" />
+                          {post.breed}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Quick Facts Bar */}
+                    <div className="flex justify-around text-center my-4 py-2 border-y border-gray-100">
+                      <div>
+                        <p className="text-xs text-gray-500 font-['Poppins'] uppercase tracking-wider">
+                          Age
+                        </p>
+                        <p className="font-bold text-gray-700 text-sm sm:text-base">
+                          {post.age !== undefined ? `${post.age} mo` : "N/A"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 font-['Poppins'] uppercase tracking-wider">
+                          Size
+                        </p>
+                        <p className="font-bold text-gray-700 text-sm sm:text-base">
+                          {post.size || "N/A"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 font-['Poppins'] uppercase tracking-wider">
+                          Location
+                        </p>
+                        <p
+                          className="font-bold text-gray-700 truncate text-sm sm:text-base"
+                          title={post.location}
+                        >
+                          {post.location || "N/A"}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Description Preview */}
+                    {post.content && (
+                      <p className="text-sm text-gray-600 line-clamp-3 font-['Poppins'] flex-grow">
+                        {post.content}
                       </p>
                     )}
-                  </div>
 
-                  {/* Quick Facts Bar */}
-                  <div className="flex justify-around text-center my-4 py-2 border-y border-gray-100">
-                    <div>
-                      <p className="text-xs text-gray-500 font-['Poppins'] uppercase tracking-wider">
-                        Age
-                      </p>
-                      <p className="font-bold text-gray-700 text-sm sm:text-base">
-                        {post.age !== undefined ? `${post.age} mo` : "N/A"}
-                      </p>
+                    {/* Footer with action */}
+                    <div className="mt-4 pt-4 border-t border-gray-100 text-right">
+                      <span className="inline-flex items-center font-semibold text-violet-600 group-hover:text-blue-500 transition-colors duration-300 font-['Poppins'] text-sm">
+                        View Details
+                        <FaArrowRight className="ml-2 transition-transform duration-300 group-hover:translate-x-1" />
+                      </span>
                     </div>
-                    <div>
-                      <p className="text-xs text-gray-500 font-['Poppins'] uppercase tracking-wider">
-                        Size
-                      </p>
-                      <p className="font-bold text-gray-700 text-sm sm:text-base">
-                        {post.size || "N/A"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 font-['Poppins'] uppercase tracking-wider">
-                        Location
-                      </p>
-                      <p
-                        className="font-bold text-gray-700 truncate text-sm sm:text-base"
-                        title={post.location}
-                      >
-                        {post.location || "N/A"}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Description Preview */}
-                  {post.content && (
-                    <p className="text-sm text-gray-600 line-clamp-3 font-['Poppins'] flex-grow">
-                      {post.content}
-                    </p>
-                  )}
-
-                  {/* Footer with action */}
-                  <div className="mt-4 pt-4 border-t border-gray-100 text-right">
-                    <span className="inline-flex items-center font-semibold text-violet-600 group-hover:text-blue-500 transition-colors duration-300 font-['Poppins'] text-sm">
-                      View Details
-                      <FaArrowRight className="ml-2 transition-transform duration-300 group-hover:translate-x-1" />
-                    </span>
                   </div>
                 </div>
-              </div>
-            </Link>
-          </div>
-        ))
+              </Link>
+            </div>
+          ))
       )}
     </div>
   );

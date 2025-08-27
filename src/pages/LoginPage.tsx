@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { FaPaw, FaLock, FaEnvelope } from "react-icons/fa";
+import { FaPaw, FaLock, FaEnvelope, FaGoogle } from "react-icons/fa";
 import { useAuth } from "../context/AuthContext";
 
 const LoginPage = () => {
   const navigate = useNavigate();
-  const { signInWithEmail } = useAuth();
+  const { signInWithEmail, signInWithGoogle, user } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -36,6 +36,22 @@ const LoginPage = () => {
 
     setLoading(false);
   };
+
+  const handleGoogleSignIn = async () => {
+    try {
+      await signInWithGoogle();
+      // Supabase will handle the redirect
+    } catch (error) {
+      setError("Google sign-in failed.");
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      // Redirect to landing/dashboard if user is authenticated
+      navigate("/");
+    }
+  }, [user, navigate]);
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-gray-50">
@@ -75,8 +91,12 @@ const LoginPage = () => {
       {/* Right Section */}
       <div className="flex items-center justify-center w-full md:w-1/2 p-6 md:p-12 min-h-screen">
         <div className=" w-full max-w-md">
-          <h2 className="text-2xl sm:text-3xl font-bold mb-2 text-gray-900">Get started</h2>
-          <p className="text-gray-600 mb-4 sm:mb-8">Sign in to continue to Pawpal</p>
+          <h2 className="text-2xl sm:text-3xl font-bold mb-2 text-gray-900">
+            Get started
+          </h2>
+          <p className="text-gray-600 mb-4 sm:mb-8">
+            Sign in to continue to Pawpal
+          </p>
 
           <form onSubmit={handleLogin} className="space-y-6">
             <div>
@@ -156,6 +176,15 @@ const LoginPage = () => {
               )}
             </button>
           </form>
+
+          <button
+            type="button"
+            onClick={handleGoogleSignIn}
+            className="w-full flex items-center justify-center gap-3 px-5 py-3 bg-red-500 text-white rounded-full hover:bg-red-600 transition-all shadow-lg mt-4"
+          >
+            <FaGoogle />
+            Sign in with Google
+          </button>
 
           <div className="mt-8 text-center">
             <p className="text-gray-600 mb-4">Create an account?</p>

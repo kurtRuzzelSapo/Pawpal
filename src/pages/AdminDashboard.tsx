@@ -831,12 +831,12 @@ const PostManagement = () => {
   ) => {
     try {
       if (action === "remove") {
-        const { error } = await supabase.from("post").delete().eq("id", postId);
+        const { error } = await supabase.from("posts").delete().eq("id", postId); // <-- FIXED
         if (error) throw error;
         toast.success("Post removed successfully");
       } else {
         const { error } = await supabase
-          .from("post")
+          .from("posts") // <-- FIXED
           .update({ status: action === "approve" ? "approved" : "rejected" })
           .eq("id", postId);
         if (error) throw error;
