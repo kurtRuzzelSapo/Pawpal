@@ -1,8 +1,8 @@
 
 
-# Smart Pet – Pet Finding Application 🐾
+# Pawpal – Pet Finding Application 🐾
 
-Smart Pet is a **friendly and fun web application** built with **React**, **TypeScript**, and **Supabase** to help pet lovers **find, manage, and adopt pets** with ease.  
+Pawpal is a **friendly and fun web application** built with **React**, **TypeScript**, and **Supabase** to help pet lovers **find, manage, and adopt pets** with ease.  
 It’s designed to bring joy and convenience, whether you’re searching for a furry companion, chatting with other pet owners, or sharing pet adoption stories.  
 
 ## 🚀 Live Demo
