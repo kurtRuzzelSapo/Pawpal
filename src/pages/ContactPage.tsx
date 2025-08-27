@@ -62,7 +62,7 @@ const ContactPage = () => {
             <div className="flex items-center">
               <Link to="/" className="flex items-center">
                 <FaPaw className="text-violet-600 text-2xl mr-2" />
-                <span className="font-bold text-xl text-violet-900 font-['Quicksand']">SmartPet</span>
+                <span className="font-bold text-xl text-violet-900 font-['Quicksand']">Pawpal</span>
               </Link>
             </div>
             <div className="flex items-center">
@@ -114,7 +114,7 @@ const ContactPage = () => {
                   </div>
                   <div>
                     <h3 className="text-lg font-semibold text-violet-800 font-['Quicksand']">Email</h3>
-                    <p className="text-gray-600 font-['Poppins']">hello@smartpet.com</p>
+                    <p className="text-gray-600 font-['Poppins']">hello@Pawpal.com</p>
                   </div>
                 </div>
               </div>
@@ -226,7 +226,7 @@ const ContactPage = () => {
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="flex items-center mb-4 md:mb-0">
               <FaPaw className="text-violet-300 text-2xl mr-2" />
-              <span className="text-xl font-bold font-['Quicksand']">SmartPet</span>
+              <span className="text-xl font-bold font-['Quicksand']">Pawpal</span>
             </div>
             <div className="flex space-x-6">
               <Link to="/" className="hover:text-violet-300 transition-colors font-['Poppins']">Home</Link>
@@ -235,7 +235,7 @@ const ContactPage = () => {
             </div>
           </div>
           <div className="mt-8 text-center text-violet-200">
-            <p className="font-['Poppins']">© 2024 SmartPet. All rights reserved.</p>
+            <p className="font-['Poppins']">© 2024 Pawpal. All rights reserved.</p>
           </div>
         </div>
       </footer>

@@ -70,7 +70,7 @@ const ChatPage: React.FC = () => {
     if (petName) {
       document.title = `Chat with ${petName}`;
     } else {
-      document.title = "SmartPet Chat";
+      document.title = "Pawpal Chat";
     }
   }, []);
 
@@ -1696,7 +1696,7 @@ const ChatPage: React.FC = () => {
                 <FaComments className="w-12 h-12 text-white" />
               </div>
               <h3 className="text-3xl font-bold text-slate-800 mb-3 font-['Quicksand']">
-                Welcome to SmartPet Chat
+                Welcome to Pawpal Chat
               </h3>
               <p className="text-slate-500 leading-relaxed">
                 Select a conversation from the sidebar to view messages or start

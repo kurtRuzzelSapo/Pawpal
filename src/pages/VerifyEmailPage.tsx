@@ -34,7 +34,7 @@ const VerifyEmailPage = () => {
               <FaPaw />
             </div>
             <div className="ml-4">
-              <p className="font-semibold">SmartPet Team</p>
+              <p className="font-semibold">Pawpal Team</p>
               <p className="text-gray-400">Security Notice</p>
             </div>
           </div>
