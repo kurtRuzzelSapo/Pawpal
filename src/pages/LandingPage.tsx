@@ -397,7 +397,7 @@ const LandingPage = () => {
                     </div>
                     <div>
                       <p className="font-semibold text-indigo-800">Email</p>
-                      <p className="text-gray-600">support@pawpal.com</p>
+                      <p className="text-gray-600">pawpal.sup@gmailcom</p>
                     </div>
                   </div>
 
