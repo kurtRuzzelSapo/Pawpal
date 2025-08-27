@@ -17,6 +17,7 @@ interface AuthContextType {
   ) => Promise<AuthResponse>;
   signInWithEmail: (email: string, password: string) => Promise<AuthResponse>;
   signOut: () => Promise<void>;
+  signInWithGoogle: () => Promise<void>; // <-- Add this line!
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -227,9 +228,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  const signInWithGoogle = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: window.location.origin,
+      },
+    });
+    if (error) throw error;
+  };
+
   return (
     <AuthContext.Provider
-      value={{ user, role, signUpWithEmail, signInWithEmail, signOut }}
+      value={{
+        user,
+        role,
+        signUpWithEmail,
+        signInWithEmail,
+        signOut,
+        signInWithGoogle, // <-- Add this line!
+      }}
     >
       {children}
     </AuthContext.Provider>

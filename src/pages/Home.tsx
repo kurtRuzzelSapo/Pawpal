@@ -19,6 +19,7 @@ const Home = () => {
     size: "",
     ageMin: "",
     ageMax: "",
+    vaccinationProof: "", // "all", "with", "without"
   });
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,7 +27,10 @@ const Home = () => {
   const fetchPosts = useCallback(async () => {
     setLoading(true);
     try {
-      let query = supabase.from("posts").select("*");
+      let query = supabase
+        .from("posts")
+        .select("*")
+        .in("status", ["approved", "adopted"]);
 
       if (filters.breed) {
         query = query.ilike("breed", `%${filters.breed}%`);
@@ -49,7 +53,26 @@ const Home = () => {
       });
 
       if (error) throw error;
-      setPosts(data || []);
+
+      // Vaccination Proof filter (client-side, since health_info is a text field)
+      let filteredPosts = data || [];
+      if (filters.vaccinationProof === "with") {
+        filteredPosts = filteredPosts.filter(
+          (post) =>
+            post.health_info &&
+            post.health_info.startsWith("Vaccination Proof:")
+        );
+      }
+      if (filters.vaccinationProof === "without") {
+        filteredPosts = filteredPosts.filter(
+          (post) =>
+            !post.health_info ||
+            post.health_info === "EMPTY" ||
+            !post.health_info.startsWith("Vaccination Proof:")
+        );
+      }
+
+      setPosts(filteredPosts);
     } catch (error) {
       console.error("Error fetching posts:", error);
     } finally {
@@ -228,6 +251,23 @@ const Home = () => {
                   min="0"
                 />
               </div>
+            </div>
+
+            {/* Filter by Vaccination Proof */}
+            <div>
+              <label className="block text-sm font-medium text-violet-700 mb-2">
+                Vaccination Proof
+              </label>
+              <select
+                name="vaccinationProof"
+                value={filters.vaccinationProof}
+                onChange={handleFilterChange}
+                className="w-full px-4 py-2 bg-violet-50 border-none rounded-xl text-violet-800 focus:ring-2 focus:ring-violet-400 transition appearance-none"
+              >
+                <option value="">All</option>
+                <option value="with">With Proof</option>
+                <option value="without">Without Proof</option>
+              </select>
             </div>
           </div>
         </aside>
