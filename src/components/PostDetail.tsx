@@ -74,11 +74,13 @@ const UpdatePostModal: React.FC<UpdateModalProps> = ({
 }) => {
   const [name, setName] = useState(post?.name ?? "");
   const [content, setContent] = useState(post?.content ?? "");
+  const [status, setStatus] = useState(post?.status || "approved");
 
   useEffect(() => {
     if (post) {
       setName(post.name ?? "");
       setContent(post.content ?? "");
+      setStatus(post.status || "approved");
     }
   }, [post]);
 
@@ -86,12 +88,23 @@ const UpdatePostModal: React.FC<UpdateModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onUpdate({ name, content });
+    onUpdate({ name, content, status });
+  };
+
+  const handleSave = () => {
+    onUpdate({ ...post, status });
+    onClose();
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-      <div className="bg-white rounded-lg p-8 shadow-2xl w-full max-w-lg">
+    <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex justify-center items-center z-50">
+      <div className="bg-white rounded-lg p-8 shadow-2xl relative max-w-lg w-full">
+        <button
+          onClick={onClose}
+          className="absolute top-2 right-2 text-gray-500 hover:text-gray-700 text-2xl font-bold p-2"
+        >
+          &times;
+        </button>
         <h2 className="text-xl font-bold mb-4">Update Post</h2>
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
@@ -118,6 +131,19 @@ const UpdatePostModal: React.FC<UpdateModalProps> = ({
               rows={5}
             />
           </div>
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Adoption Status
+            </label>
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+              className="w-full px-4 py-2 border rounded-lg"
+            >
+              <option value="approved">Available for Adoption</option>
+              <option value="adopted">Adopted</option>
+            </select>
+          </div>
           <div className="flex justify-end gap-4 mt-6">
             <button
               type="button"
@@ -134,6 +160,12 @@ const UpdatePostModal: React.FC<UpdateModalProps> = ({
             </button>
           </div>
         </form>
+        <button
+          onClick={handleSave}
+          className="mt-6 w-full bg-violet-600 text-white py-2 rounded font-semibold hover:bg-violet-700"
+        >
+          Save Changes
+        </button>
       </div>
     </div>
   );
@@ -218,15 +250,11 @@ const deletePost = async (post: Post) => {
 };
 
 const updatePost = async (postId: number, updates: Partial<Post>) => {
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from("posts")
     .update(updates)
-    .eq("id", postId)
-    .select()
-    .single();
-
+    .eq("id", postId);
   if (error) throw error;
-  return data;
 };
 
 // Add adoption request function
