@@ -14,6 +14,7 @@ export interface Post {
   additional_photos?: string[];
   age?: number;
   breed?: string;
+  pet_type?: "Dog" | "Cat" | "Rabbit" | "Bird" | "Guinea Pig" | "Hamster";
   vaccination_status?: boolean;
   location?: string;
   size?: "Small" | "Medium" | "Large" | "Extra Large";
@@ -138,7 +139,7 @@ export const PostList: React.FC<PostListProps> = ({ posts: initialPosts }) => {
                       {post.breed && (
                         <p className="text-sm text-gray-500 font-['Poppins'] flex items-center truncate">
                           <MdPets className="mr-2 flex-shrink-0 text-gray-400" />
-                          {post.breed}
+                          {post.pet_type ? `${post.pet_type} • ${post.breed}` : post.breed}
                         </p>
                       )}
                     </div>
@@ -158,7 +159,15 @@ export const PostList: React.FC<PostListProps> = ({ posts: initialPosts }) => {
                           Size
                         </p>
                         <p className="font-bold text-gray-700 text-sm sm:text-base">
-                          {post.size || "N/A"}
+                          {post.size === 'Small'
+                            ? 'Small: 1 – 10 kg'
+                            : post.size === 'Medium'
+                            ? 'Medium: 11 – 25 kg'
+                            : post.size === 'Large'
+                            ? 'Large: 26 – 44 kg'
+                            : post.size === 'Extra Large'
+                            ? 'Extra Large (XL): 45+ kg'
+                            : 'N/A'}
                         </p>
                       </div>
                       <div>

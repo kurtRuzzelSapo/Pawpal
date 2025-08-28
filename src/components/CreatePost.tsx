@@ -27,6 +27,7 @@ interface PostInput {
   user_id?: string | null;
   age?: number;
   breed?: string;
+  pet_type?: "Dog" | "Cat" | "Rabbit" | "Bird" | "Guinea Pig" | "Hamster";
   vaccination_status?: boolean;
   location?: string;
   size?: "Small" | "Medium" | "Large" | "Extra Large";
@@ -99,6 +100,7 @@ const createPost = async (
       avatar_url: post.avatar_url,
       age: post.age,
       breed: post.breed,
+      pet_type: post.pet_type,
       vaccination_status: post.vaccination_status,
       location: post.location,
       user_id: post.user_id,
@@ -131,6 +133,9 @@ export const CreatePost = () => {
   );
   const [age, setAge] = useState<string>("");
   const [breed, setBreed] = useState<string>("");
+  const [petType, setPetType] = useState<
+    "Dog" | "Cat" | "Rabbit" | "Bird" | "Guinea Pig" | "Hamster"
+  >();
   const [vaccinationStatus, setVaccinationStatus] = useState<boolean>(false);
   const [location, setLocation] = useState<string>("");
   const [size, setSize] = useState<
@@ -168,6 +173,7 @@ export const CreatePost = () => {
       setVaccinationPreview(null);
       setAge("");
       setBreed("");
+      setPetType(undefined);
       setVaccinationStatus(false);
       setLocation("");
       setSize("Medium");
@@ -188,6 +194,10 @@ export const CreatePost = () => {
       alert("You must be logged in to create a post");
       return;
     }
+    if (!petType) {
+      alert("Please select a Pet Type");
+      return;
+    }
 
     if (vaccinationStatus && !vaccinationProofFile) {
       alert("Please upload vaccination proof");
@@ -202,6 +212,7 @@ export const CreatePost = () => {
         user_id: user.id,
         age: age ? parseInt(age) : undefined,
         breed,
+        pet_type: petType,
         vaccination_status: vaccinationStatus,
         location,
         size,
@@ -243,10 +254,10 @@ export const CreatePost = () => {
   };
 
   const sizeOptions = [
-    { value: "Small", label: "Small (0-15 lbs)" },
-    { value: "Medium", label: "Medium (16-40 lbs)" },
-    { value: "Large", label: "Large (41-100 lbs)" },
-    { value: "Extra Large", label: "Extra Large (100+ lbs)" },
+    { value: "Small", label: "Small: 1 – 10 kg" },
+    { value: "Medium", label: "Medium: 11 – 25 kg" },
+    { value: "Large", label: "Large: 26 – 44 kg" },
+    { value: "Extra Large", label: "Extra Large (XL): 45+ kg" },
   ];
 
   // --- Add delete handlers ---
@@ -475,6 +486,39 @@ export const CreatePost = () => {
               </h2>
 
               <div className="space-y-8">
+                <div className="group">
+                  <label
+                    htmlFor="petType"
+                    className="mb-4 font-semibold text-violet-700 font-['Poppins'] flex items-center gap-2 text-lg"
+                  >
+                    Pet Type
+                  </label>
+                  <select
+                    id="petType"
+                    value={petType || ""}
+                    onChange={(e) =>
+                      setPetType(
+                        (e.target.value as
+                          | "Dog"
+                          | "Cat"
+                          | "Rabbit"
+                          | "Bird"
+                          | "Guinea Pig"
+                          | "Hamster") || undefined
+                      )
+                    }
+                    className="w-full border-2 border-violet-200 bg-white/80 p-5 rounded-2xl text-violet-800 focus:ring-4 focus:ring-violet-200 focus:border-violet-400 transition-all duration-300 group-hover:border-violet-300 font-['Poppins'] text-lg"
+                    required
+                  >
+                    <option value="">Select type</option>
+                    <option value="Dog">Dog</option>
+                    <option value="Cat">Cat</option>
+                    <option value="Rabbit">Rabbit</option>
+                    <option value="Bird">Bird</option>
+                    <option value="Guinea Pig">Guinea Pig</option>
+                    <option value="Hamster">Hamster</option>
+                  </select>
+                </div>
                 <div className="group">
                   <label
                     htmlFor="name"
