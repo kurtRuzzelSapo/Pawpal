@@ -30,6 +30,7 @@ interface AdoptionRequest {
   status: string;
   created_at: string;
   updated_at?: string;
+  adoption_reason?: string;
   requester?: RequesterProfile;
 }
 
@@ -328,6 +329,14 @@ export const AdoptionRequestsList: React.FC<AdoptionRequestsListProps> = ({
                 </button>
               </div>
             </div>
+
+            {/* Reason preview (if provided) */}
+            {request.adoption_reason && request.adoption_reason.trim().length > 0 && (
+              <div className="mt-3 text-sm text-gray-700 font-['Poppins']">
+                <span className="font-medium text-violet-700">Reason:</span>{" "}
+                <span className="line-clamp-2">{request.adoption_reason}</span>
+              </div>
+            )}
 
             {/* Quick actions for pending requests */}
             {request.status === "pending" && (

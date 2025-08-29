@@ -113,7 +113,7 @@ export const NotificationBadge: React.FC = () => {
                   // Get pet name if available
                   if (notification.post_id) {
                     const { data: postData } = await supabase
-                      .from("post")
+                      .from("posts")
                       .select("name, image_url, breed, age")
                       .eq("id", notification.post_id)
                       .maybeSingle();
@@ -308,7 +308,7 @@ export const NotificationBadge: React.FC = () => {
       if (notification.post_id) {
         // Verify the post exists first
         const { data: postData, error: postError } = await supabase
-          .from("post")
+          .from("posts")
           .select("id")
           .eq("id", notification.post_id)
           .maybeSingle();

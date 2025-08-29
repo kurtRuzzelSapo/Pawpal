@@ -20,7 +20,7 @@ export const PostItem = ({ post }: Props) => {
   // Function to extract vaccination proof URL from health_info
   const extractVaccinationProof = (healthInfo: string) => {
     if (!healthInfo) return null;
-    const match = healthInfo.match(/Vaccination Proof: (https:\/\/[^\s]+)/);
+    const match = healthInfo.match(/Vaccination Proof:\s+(https?:\/\/\S+)/i);
     return match ? match[1] : null;
   };
 
@@ -28,7 +28,7 @@ export const PostItem = ({ post }: Props) => {
   const getCleanHealthInfo = (healthInfo: string) => {
     if (!healthInfo) return "";
     return healthInfo
-      .replace(/Vaccination Proof: https:\/\/[^\s]+/g, "")
+      .replace(/Vaccination Proof:\s+https?:\/\/\S+/gi, "")
       .trim();
   };
 

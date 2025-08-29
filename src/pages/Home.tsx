@@ -63,8 +63,8 @@ const Home = () => {
       if (filters.vaccinationProof === "with") {
         filteredPosts = filteredPosts.filter(
           (post) =>
-            post.health_info &&
-            post.health_info.startsWith("Vaccination Proof:")
+            typeof post.health_info === "string" &&
+            /Vaccination Proof:\s+https?:\/\/\S+/i.test(post.health_info)
         );
       }
       if (filters.vaccinationProof === "without") {
@@ -72,7 +72,7 @@ const Home = () => {
           (post) =>
             !post.health_info ||
             post.health_info === "EMPTY" ||
-            !post.health_info.startsWith("Vaccination Proof:")
+            !/Vaccination Proof:\s+https?:\/\/\S+/i.test(post.health_info)
         );
       }
 

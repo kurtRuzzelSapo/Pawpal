@@ -143,13 +143,31 @@ export default function VetDashboard() {
   const handleApprove = async (postId: number) => {
     if (!user) return;
     const healthNote = note[postId] !== undefined ? note[postId] : "";
+    // Preserve existing health_info (which may include vaccination proof)
+    const { data: existingPost } = await supabase
+      .from("posts")
+      .select("health_info")
+      .eq("id", postId)
+      .single();
+
+    let newHealthInfo: string | undefined = existingPost?.health_info ?? undefined;
+    if (healthNote && healthNote.trim().length > 0) {
+      newHealthInfo = newHealthInfo
+        ? `${healthNote}\n\n${newHealthInfo}`
+        : healthNote;
+    }
+
+    const updatePayload: Record<string, unknown> = {
+      status: "approved",
+      vet_id: getVetId(user),
+    };
+    if (typeof newHealthInfo === "string") {
+      updatePayload.health_info = newHealthInfo;
+    }
+
     const { data, error } = await supabase
       .from("posts")
-      .update({
-        status: "approved",
-        vet_id: getVetId(user),
-        health_info: healthNote,
-      })
+      .update(updatePayload)
       .eq("id", postId);
 
     console.log("Update result:", { data, error });
@@ -170,13 +188,31 @@ export default function VetDashboard() {
   const handleReject = async (postId: number) => {
     if (!user) return;
     const healthNote = note[postId] !== undefined ? note[postId] : "";
+    // Preserve existing health_info (which may include vaccination proof)
+    const { data: existingPost } = await supabase
+      .from("posts")
+      .select("health_info")
+      .eq("id", postId)
+      .single();
+
+    let newHealthInfo: string | undefined = existingPost?.health_info ?? undefined;
+    if (healthNote && healthNote.trim().length > 0) {
+      newHealthInfo = newHealthInfo
+        ? `${healthNote}\n\n${newHealthInfo}`
+        : healthNote;
+    }
+
+    const updatePayload: Record<string, unknown> = {
+      status: "rejected",
+      vet_id: getVetId(user),
+    };
+    if (typeof newHealthInfo === "string") {
+      updatePayload.health_info = newHealthInfo;
+    }
+
     const { error } = await supabase
       .from("posts")
-      .update({
-        status: "rejected",
-        vet_id: getVetId(user),
-        health_info: healthNote,
-      })
+      .update(updatePayload)
       .eq("id", postId);
     if (!error) {
       toast.success("Post rejected.");

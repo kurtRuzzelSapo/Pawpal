@@ -30,7 +30,7 @@ interface DeleteModalProps extends ModalProps {
 
 interface UpdateModalProps extends ModalProps {
   post: Post | null;
-  onUpdate: (updates: { name: string; content: string; status?: string }) => void;
+  onUpdate: (updates: { name: string; content: string; status?: string; pet_type?: Post["pet_type"] }) => void;
 }
 
 const DeleteConfirmationModal: React.FC<DeleteModalProps> = ({
@@ -75,12 +75,14 @@ const UpdatePostModal: React.FC<UpdateModalProps> = ({
   const [name, setName] = useState(post?.name ?? "");
   const [content, setContent] = useState(post?.content ?? "");
   const [status, setStatus] = useState(post?.status || "approved");
+  const [petType, setPetType] = useState<Post["pet_type"]>(post?.pet_type);
 
   useEffect(() => {
     if (post) {
       setName(post.name ?? "");
       setContent(post.content ?? "");
       setStatus(post.status || "approved");
+      setPetType(post.pet_type);
     }
   }, [post]);
 
@@ -88,11 +90,11 @@ const UpdatePostModal: React.FC<UpdateModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onUpdate({ name, content, status });
+    onUpdate({ name, content, status, pet_type: petType });
   };
 
   const handleSave = () => {
-    onUpdate({ name, content, status });
+    onUpdate({ name, content, status, pet_type: petType });
     onClose();
   };
 
@@ -130,6 +132,28 @@ const UpdatePostModal: React.FC<UpdateModalProps> = ({
               className="w-full p-2 border rounded"
               rows={5}
             />
+          </div>
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Pet Type
+            </label>
+            <select
+              value={petType || ""}
+              onChange={(e) =>
+                setPetType(
+                  (e.target.value as Post["pet_type"]) || undefined
+                )
+              }
+              className="w-full px-4 py-2 border rounded-lg"
+            >
+              <option value="">Not specified</option>
+              <option value="Dog">Dog</option>
+              <option value="Cat">Cat</option>
+              <option value="Rabbit">Rabbit</option>
+              <option value="Bird">Bird</option>
+              <option value="Guinea Pig">Guinea Pig</option>
+              <option value="Hamster">Hamster</option>
+            </select>
           </div>
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -225,7 +249,7 @@ const deletePost = async (post: Post) => {
 
     // Delete vaccination proof if it exists in health_info
     const vaccinationProofMatch = post.health_info?.match(
-      /Vaccination Proof: (https:\/\/[^\s]+)/
+      /Vaccination Proof:\s+(https?:\/\/\S+)/i
     );
     if (vaccinationProofMatch) {
       const vaccinationProofPath = vaccinationProofMatch[1].split("/").pop();
@@ -282,17 +306,19 @@ const sendAdoptionRequest = async (
       throw new Error("You already have a pending request for this pet");
     }
 
-    // If no existing request, create a new one
-    const { data, error } = await supabase.from("adoption_requests").insert([
-      {
-        post_id: postId,
-        requester_id: requesterId,
-        owner_id: ownerId,
-        status: "pending",
-        created_at: new Date().toISOString(),
-        pet_name: petName,
-      },
-    ]);
+    // If no existing request, create a new one (send minimal required fields)
+    const { data, error } = await supabase
+      .from("adoption_requests")
+      .insert([
+        {
+          post_id: postId,
+          requester_id: requesterId,
+          owner_id: ownerId,
+          status: "pending",
+          adoption_reason: reason ?? "",
+        },
+      ])
+      .select("*");
 
     if (error) {
       console.error("Error creating adoption request:", error);
@@ -574,10 +600,15 @@ export const PostDetail = ({ postId }: { postId: string }) => {
     }
   };
 
-  const handleUpdate = async (updates: { name: string; content: string }) => {
+  const handleUpdate = async (updates: { name: string; content: string; status?: string; pet_type?: Post["pet_type"] }) => {
     if (!post) return;
     try {
-      await updatePost(post.id, updates);
+      // Ensure status is of correct type
+      const safeUpdates: Partial<Post> = {
+        ...updates,
+        status: updates.status as Post["status"] | undefined,
+      };
+      await updatePost(post.id, safeUpdates);
       toast.success("Post updated successfully");
       queryClient.invalidateQueries({ queryKey: ["post", postId] });
     } catch (error) {
@@ -620,13 +651,13 @@ export const PostDetail = ({ postId }: { postId: string }) => {
 
   const extractVaccinationProof = (healthInfo: string | undefined) => {
     if (!healthInfo) return null;
-    const match = healthInfo.match(/Vaccination Proof: (https:\/\/[^\s]+)/);
+    const match = healthInfo.match(/Vaccination Proof:\s+(https?:\/\/\S+)/i);
     return match ? match[1] : null;
   };
 
   const getCleanHealthInfo = (healthInfo: string | undefined) => {
     if (!healthInfo) return "";
-    return healthInfo.replace(/Vaccination Proof: https:\/\/[^\s]+/, "").trim();
+    return healthInfo.replace(/Vaccination Proof:\s+https?:\/\/\S+/i, "").trim();
   };
 
   const vaccinationProof = extractVaccinationProof(post.health_info);
