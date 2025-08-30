@@ -38,7 +38,7 @@ export const UserProfile = () => {
     setProfileError("");
     if (!user) return;
     // Try to get from users table
-    const { data: profile, error } = await supabase
+    const { data: profile } = await supabase
       .from("users")
       .select("full_name, location")
       .eq("user_id", user.id)
