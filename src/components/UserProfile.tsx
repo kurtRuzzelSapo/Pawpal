@@ -619,7 +619,7 @@ export const UserProfile = ({ profileId }: UserProfileProps) => {
     if (!user) return;
     
     // Get current profile data
-    const { data: profile, error } = await supabase
+    const { data: profile } = await supabase
       .from("users")
       .select("full_name, location")
       .eq("user_id", user.id)
