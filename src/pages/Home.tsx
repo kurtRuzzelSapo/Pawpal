@@ -14,6 +14,7 @@ import { Post } from "../components/PostList";
 const Home = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [filters, setFilters] = useState({
+    petType: "",
     breed: "",
     location: "",
     size: "",
@@ -38,6 +39,9 @@ const Home = () => {
       if (filters.location) {
         query = query.ilike("location", `%${filters.location}%`);
       }
+      if (filters.petType) {
+        query = query.eq("pet_type", filters.petType);
+      }
       if (filters.size) {
         query = query.eq("size", filters.size);
       }
@@ -59,8 +63,8 @@ const Home = () => {
       if (filters.vaccinationProof === "with") {
         filteredPosts = filteredPosts.filter(
           (post) =>
-            post.health_info &&
-            post.health_info.startsWith("Vaccination Proof:")
+            typeof post.health_info === "string" &&
+            /Vaccination Proof:\s+https?:\/\/\S+/i.test(post.health_info)
         );
       }
       if (filters.vaccinationProof === "without") {
@@ -68,7 +72,7 @@ const Home = () => {
           (post) =>
             !post.health_info ||
             post.health_info === "EMPTY" ||
-            !post.health_info.startsWith("Vaccination Proof:")
+            !/Vaccination Proof:\s+https?:\/\/\S+/i.test(post.health_info)
         );
       }
 
@@ -162,6 +166,26 @@ const Home = () => {
           </div>
 
           <div className="space-y-4 lg:mt-4">
+            {/* Filter by Pet Type */}
+            <div>
+              <label className="block text-sm font-medium text-violet-700 mb-2">
+                Pet Type
+              </label>
+              <select
+                name="petType"
+                value={filters.petType}
+                onChange={handleFilterChange}
+                className="w-full px-4 py-2 bg-violet-50 border-none rounded-xl text-violet-800 focus:ring-2 focus:ring-violet-400 transition appearance-none"
+              >
+                <option value="">Any Type</option>
+                <option value="Dog">Dog</option>
+                <option value="Cat">Cat</option>
+                <option value="Rabbit">Rabbit</option>
+                <option value="Bird">Bird</option>
+                <option value="Guinea Pig">Guinea Pig</option>
+                <option value="Hamster">Hamster</option>
+              </select>
+            </div>
             {/* Search by Breed */}
             <div>
               <label className="block text-sm font-medium text-violet-700 mb-2">

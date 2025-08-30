@@ -20,7 +20,7 @@ export const PostItem = ({ post }: Props) => {
   // Function to extract vaccination proof URL from health_info
   const extractVaccinationProof = (healthInfo: string) => {
     if (!healthInfo) return null;
-    const match = healthInfo.match(/Vaccination Proof: (https:\/\/[^\s]+)/);
+    const match = healthInfo.match(/Vaccination Proof:\s+(https?:\/\/\S+)/i);
     return match ? match[1] : null;
   };
 
@@ -28,7 +28,7 @@ export const PostItem = ({ post }: Props) => {
   const getCleanHealthInfo = (healthInfo: string) => {
     if (!healthInfo) return "";
     return healthInfo
-      .replace(/Vaccination Proof: https:\/\/[^\s]+/g, "")
+      .replace(/Vaccination Proof:\s+https?:\/\/\S+/gi, "")
       .trim();
   };
 
@@ -101,12 +101,26 @@ export const PostItem = ({ post }: Props) => {
               )}
             </div>
 
-            {/* Size and Vaccination Status */}
+            {/* Pet Type / Breed, Size and Vaccination Status */}
             <div className="flex justify-between text-sm font-['Poppins']">
+              {post.breed && (
+                <span className="flex items-center text-violet-700 mr-2 truncate">
+                  <MdPets className="mr-1 text-violet-500" />
+                  {post.pet_type ? `${post.pet_type} • ${post.breed}` : post.breed}
+                </span>
+              )}
               {post.size && (
                 <span className="flex items-center text-violet-700">
                   <FaRuler className="mr-1 text-violet-500" />
-                  {post.size}
+                  {post.size === 'Small'
+                    ? 'Small: 1 – 10 kg'
+                    : post.size === 'Medium'
+                    ? 'Medium: 11 – 25 kg'
+                    : post.size === 'Large'
+                    ? 'Large: 26 – 44 kg'
+                    : post.size === 'Extra Large'
+                    ? 'Extra Large (XL): 45+ kg'
+                    : post.size}
                 </span>
               )}
               {post.vaccination_status !== undefined && (

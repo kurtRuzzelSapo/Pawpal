@@ -37,6 +37,7 @@ interface AdoptionRequest {
   status: string;
   created_at: string;
   updated_at?: string;
+  adoption_reason?: string;
   post?: PostData;
 }
 
@@ -371,6 +372,18 @@ export const AdoptionRequestDetails: React.FC<AdoptionRequestDetailsProps> = ({
             </p>
           </div>
         </div>
+
+        {/* Adoption Reason */}
+        {request.adoption_reason && request.adoption_reason.trim().length > 0 && (
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold text-violet-800 mb-3 font-['Quicksand']">
+              Adoption Reason
+            </h3>
+            <div className="bg-violet-50 p-4 rounded-xl font-['Poppins'] text-gray-700 whitespace-pre-wrap">
+              {request.adoption_reason}
+            </div>
+          </div>
+        )}
 
         {/* Actions */}
         <div className="border-t border-violet-100 pt-4 flex justify-between items-center">

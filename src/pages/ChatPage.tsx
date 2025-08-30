@@ -15,6 +15,7 @@ interface Message {
   is_read: boolean;
   sender_name?: string;
   sender_avatar?: string | null;
+  image_url?: string; // <-- add this line
 }
 
 // Interface for conversation participants
@@ -63,6 +64,16 @@ const ChatPage: React.FC = () => {
     useState<boolean>(false);
   const [hasRunCleanup, setHasRunCleanup] = useState<boolean>(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
+
+  // Add state for block/delete dialogs
+  const [showDeleteDialog, setShowDeleteDialog] = useState<string | null>(null);
+  const [showBlockDialog, setShowBlockDialog] = useState<string | null>(null);
+  const [blockLoading, setBlockLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  // Add state for image upload
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -1444,6 +1455,43 @@ const ChatPage: React.FC = () => {
     }
   };
 
+  // Handle image file selection and upload
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user || !conversationId) return;
+    setUploadingImage(true);
+    try {
+      // Create a unique filename
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}_${Date.now()}.${fileExt}`;
+      const filePath = `${conversationId}/${fileName}`;
+      // Upload to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('chat-images')
+        .upload(filePath, file, { upsert: true });
+      if (uploadError) throw uploadError;
+      // Get public URL
+      const { data: publicUrlData } = supabase.storage.from('chat-images').getPublicUrl(filePath);
+      const imageUrl = publicUrlData.publicUrl;
+      // Send message with image_url
+      const newMessage = {
+        conversation_id: conversationId,
+        sender_id: user.id,
+        content: '',
+        image_url: imageUrl,
+        created_at: new Date().toISOString(),
+        is_read: false,
+      };
+      await supabase.from('messages').insert(newMessage);
+      toast.success('Image sent!');
+    } catch (err) {
+      toast.error('Failed to send image');
+    } finally {
+      setUploadingImage(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   // Format timestamp to a readable format
   const formatTime = (timestamp: string) => {
     const date = new Date(timestamp);
@@ -1464,6 +1512,49 @@ const ChatPage: React.FC = () => {
 
     // Otherwise show full date
     return date.toLocaleDateString();
+  };
+
+  // Helper to get the other user's ID for the current conversation
+
+  // Delete conversation for current user
+  const handleDeleteConversation = async (convId: string) => {
+    setDeleteLoading(true);
+    try {
+      await supabase
+        .from("user_conversations")
+        .delete()
+        .eq("conversation_id", convId)
+        .eq("user_id", user!.id);
+      toast.success("Conversation deleted");
+      setShowDeleteDialog(null);
+      if (conversationId === convId) navigate("/chat");
+    } catch (err) {
+      toast.error("Failed to delete conversation");
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  // Block user
+  const handleBlockUser = async (convId: string) => {
+    setBlockLoading(true);
+    const convo = conversations.find(c => c.conversation_id === convId);
+    const otherUserId = convo?.other_user_id;
+    if (!otherUserId) {
+      toast.error("Could not find user to block");
+      setBlockLoading(false);
+      return;
+    }
+    try {
+      await supabase.from("blocked_users").insert({ blocker_id: user!.id, blocked_id: otherUserId });
+      toast.success("User blocked");
+      setShowBlockDialog(null);
+      if (conversationId === convId) navigate("/chat");
+    } catch (err) {
+      toast.error("Failed to block user");
+    } finally {
+      setBlockLoading(false);
+    }
   };
 
   // Render the chat interface or conversation list
@@ -1554,6 +1645,7 @@ const ChatPage: React.FC = () => {
                     ? "bg-indigo-50"
                     : "hover:bg-slate-100/70"
                 }`}
+                style={{ position: 'relative' }}
               >
                 {conversationId === conversation.conversation_id && (
                   <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-indigo-500 rounded-r-full"></div>
@@ -1591,6 +1683,21 @@ const ChatPage: React.FC = () => {
                     <p className="text-sm text-slate-500 truncate">
                       {conversation.last_message || "No messages yet"}
                     </p>
+                  </div>
+                  {/* Delete and Block buttons */}
+                  <div className="flex flex-col gap-1 ml-2">
+                    <button
+                      onClick={e => { e.stopPropagation(); setShowDeleteDialog(conversation.conversation_id); }}
+                      className="px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 text-xs font-semibold mb-1"
+                    >
+                      Delete
+                    </button>
+                    <button
+                      onClick={e => { e.stopPropagation(); setShowBlockDialog(conversation.conversation_id); }}
+                      className="px-2 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-xs font-semibold"
+                    >
+                      Block
+                    </button>
                   </div>
                 </div>
               </div>
@@ -1644,6 +1751,22 @@ const ChatPage: React.FC = () => {
               </h3>
             )}
           </div>
+          {conversationId && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowDeleteDialog(conversationId)}
+                className="px-3 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 text-xs font-semibold"
+              >
+                Delete
+              </button>
+              <button
+                onClick={() => setShowBlockDialog(conversationId)}
+                className="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-xs font-semibold"
+              >
+                Block
+              </button>
+            </div>
+          )}
         </div>
 
         {conversationId ? (
@@ -1673,7 +1796,15 @@ const ChatPage: React.FC = () => {
                         : "bg-white text-slate-800 border border-slate-200/80 rounded-bl-lg"
                     }`}
                   >
-                    <p className="text-sm leading-relaxed">{message.content}</p>
+                    {message.image_url && (
+                      <img
+                        src={message.image_url}
+                        alt="Sent image"
+                        className="mb-2 max-w-xs max-h-60 rounded-lg border"
+                        style={{ objectFit: 'cover' }}
+                      />
+                    )}
+                    {message.content && <p className="text-sm leading-relaxed">{message.content}</p>}
                     <p
                       className={`text-xs mt-1.5 text-right ${
                         message.sender_id === user?.id
@@ -1712,6 +1843,25 @@ const ChatPage: React.FC = () => {
             // Message Input Form
 
             <form onSubmit={sendMessage} className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-12 h-12 flex items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-500 text-white rounded-full hover:from-indigo-600 hover:to-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg"
+                title="Send Image"
+                disabled={uploadingImage}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5V7.5A2.25 2.25 0 015.25 5.25h13.5A2.25 2.25 0 0121 7.5v9a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 16.5z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5l5.25-5.25a2.25 2.25 0 013.182 0l5.318 5.318M14.25 9.75h.008v.008h-.008V9.75z" />
+                </svg>
+                <input
+                  type="file"
+                  accept="image/*"
+                  ref={fileInputRef}
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+              </button>
               <button
                 type="submit"
               
@@ -1753,6 +1903,30 @@ const ChatPage: React.FC = () => {
           )}
         </div>
       </div>
+      {showDeleteDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-transparent">
+          <div className="bg-white rounded-lg p-6 shadow-lg w-full max-w-xs">
+            <h4 className="font-bold mb-4">Delete Conversation?</h4>
+            <p className="mb-4 text-sm">This will remove the conversation from your list. You cannot undo this action.</p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setShowDeleteDialog(null)} className="px-4 py-2 bg-gray-200 rounded">Cancel</button>
+              <button onClick={() => handleDeleteConversation(showDeleteDialog)} disabled={deleteLoading} className="px-4 py-2 bg-red-500 text-white rounded">{deleteLoading ? "Deleting..." : "Delete"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showBlockDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-transparent">
+          <div className="bg-white rounded-lg p-6 shadow-lg w-full max-w-xs">
+            <h4 className="font-bold mb-4">Block User?</h4>
+            <p className="mb-4 text-sm">You will no longer receive messages from this user. You cannot undo this action.</p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setShowBlockDialog(null)} className="px-4 py-2 bg-gray-200 rounded">Cancel</button>
+              <button onClick={() => handleBlockUser(showBlockDialog)} disabled={blockLoading} className="px-4 py-2 bg-gray-700 text-white rounded">{blockLoading ? "Blocking..." : "Block"}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

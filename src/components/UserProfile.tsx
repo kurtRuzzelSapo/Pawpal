@@ -303,6 +303,15 @@ export const UserProfile = ({ profileId }: UserProfileProps) => {
   const [isUploading, setIsUploading] = useState(false);
   const [showDocumentModal, setShowDocumentModal] = useState(false);
 
+  // Edit Profile Modal State
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [address, setAddress] = useState("");
+  const [modalUsername, setModalUsername] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [profileError, setProfileError] = useState("");
+
   // File input reference
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -604,6 +613,76 @@ export const UserProfile = ({ profileId }: UserProfileProps) => {
     enabled: !!targetUserId,
   });
 
+  // Open Edit Profile Modal
+  const openEditModal = async () => {
+    setProfileError("");
+    if (!user) return;
+    
+    // Get current profile data
+    const { data: profile } = await supabase
+      .from("users")
+      .select("full_name, location")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    
+    let fName = "";
+    let lName = "";
+    let uName = "";
+    
+    if (profile?.full_name) {
+      const parts = profile.full_name.split(" ");
+      fName = parts[0] || "";
+      lName = parts.slice(1).join(" ") || "";
+      uName = profile.full_name;
+    } else if (user.user_metadata?.full_name) {
+      const parts = user.user_metadata.full_name.split(" ");
+      fName = parts[0] || "";
+      lName = parts.slice(1).join(" ") || "";
+      uName = user.user_metadata.full_name;
+    }
+    
+    setFirstName(fName);
+    setLastName(lName);
+    setAddress(profile?.location || "");
+    setModalUsername(uName);
+    setShowEditModal(true);
+  };
+
+  // Save Profile Changes
+  const saveProfile = async () => {
+    if (!user) return;
+    setSaving(true);
+    setProfileError("");
+    
+    const fullName = `${firstName} ${lastName}`.trim();
+    
+    try {
+      // Update users table
+      const { error } = await supabase
+        .from("users")
+        .update({ full_name: fullName, location: address })
+        .eq("user_id", user.id);
+      
+      if (error) throw error;
+      
+      // Update auth metadata
+      const { error: authError } = await supabase.auth.updateUser({
+        data: { full_name: fullName },
+      });
+      
+      if (authError) throw authError;
+      
+      setShowEditModal(false);
+      refetchUser(); // Refresh the user data
+      setUploadMessage("Profile updated successfully!");
+      setTimeout(() => setUploadMessage(""), 3000);
+    } catch (error: any) {
+      setProfileError(error?.message || "Failed to update profile.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (!user) {
     return (
       <div className="text-center text-violet-600 py-10 font-['Poppins'] bg-white/80 backdrop-blur-md rounded-xl p-8 shadow-md max-w-md mx-auto">
@@ -689,11 +768,21 @@ export const UserProfile = ({ profileId }: UserProfileProps) => {
 
               {/* User Info Section */}
               <div className="flex-1 text-center sm:text-left">
-                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-800 mb-2">
-                  {isOwnProfile
-                    ? user?.user_metadata?.full_name || user?.email
-                    : user?.user_metadata?.full_name || user?.email || "User"}
-                </h1>
+                <div className="flex flex-col sm:flex-row items-center sm:items-start justify-between gap-3 mb-2">
+                  <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-800">
+                    {isOwnProfile
+                      ? user?.user_metadata?.full_name || user?.email
+                      : user?.user_metadata?.full_name || user?.email || "User"}
+                  </h1>
+                  {isOwnProfile && (
+                    <button
+                      onClick={openEditModal}
+                      className="text-sm bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded-lg font-medium transition-colors"
+                    >
+                      Edit Profile
+                    </button>
+                  )}
+                </div>
 
                 <div className="flex flex-col sm:flex-row items-center sm:items-start gap-3 sm:gap-6 mb-4">
                   <div className="flex items-center gap-2 text-slate-600">
@@ -1247,6 +1336,93 @@ export const UserProfile = ({ profileId }: UserProfileProps) => {
             </div>
           )}
         </div>
+
+        {/* Edit Profile Modal */}
+        {showEditModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl p-8 w-full max-w-md mx-4 relative">
+              <button
+                className="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-2xl"
+                onClick={() => setShowEditModal(false)}
+              >
+                &times;
+              </button>
+              
+              <h3 className="text-2xl font-bold text-slate-800 mb-6">Edit Profile</h3>
+              
+              {profileError && (
+                <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm border border-red-200">
+                  {profileError}
+                </div>
+              )}
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block font-medium text-slate-700 mb-2">First Name</label>
+                  <input
+                    type="text"
+                    className="w-full p-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    placeholder="Enter your first name"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block font-medium text-slate-700 mb-2">Last Name</label>
+                  <input
+                    type="text"
+                    className="w-full p-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    placeholder="Enter your last name"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block font-medium text-slate-700 mb-2">Address</label>
+                  <input
+                    type="text"
+                    className="w-full p-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    placeholder="Enter your address"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block font-medium text-slate-700 mb-2">Username</label>
+                  <input
+                    type="text"
+                    className="w-full p-3 border border-slate-300 rounded-xl bg-slate-50 text-slate-500"
+                    value={modalUsername}
+                    disabled
+                  />
+                  <div className="text-xs text-slate-500 mt-1">
+                    Username is automatically generated from your full name
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex justify-end gap-3 mt-8">
+                <button
+                  onClick={() => setShowEditModal(false)}
+                  className="px-6 py-3 bg-slate-200 text-slate-800 rounded-xl font-semibold hover:bg-slate-300 transition-all"
+                  disabled={saving}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={saveProfile}
+                  className="px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-xl font-semibold hover:from-indigo-600 hover:to-purple-600 transition-all shadow-lg"
+                  disabled={saving}
+                >
+                  {saving ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Custom Styles */}
         <style>
