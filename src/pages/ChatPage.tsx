@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { FaBars, FaComments, FaPaperPlane } from "react-icons/fa";
+import { FaBars, FaComments, FaPaperPlane, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { supabase } from "../supabase-client";
 import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
@@ -64,6 +64,8 @@ const ChatPage: React.FC = () => {
     useState<boolean>(false);
   const [hasRunCleanup, setHasRunCleanup] = useState<boolean>(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
+  // Add state for sidebar collapse
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   // Add state for block/delete dialogs
   const [showDeleteDialog, setShowDeleteDialog] = useState<string | null>(null);
@@ -1608,13 +1610,21 @@ const ChatPage: React.FC = () => {
         ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}
         lg:translate-x-0
         fixed lg:static inset-y-0 left-0 z-50
-        w-80 max-w-[85vw] bg-white/80 backdrop-blur-xl border-r border-slate-200/80 shadow-2xl lg:shadow-none
-        transition-transform duration-300 ease-in-out
+        ${isSidebarCollapsed ? "w-16" : "w-80"} max-w-[85vw] bg-white/80 backdrop-blur-xl border-r border-slate-200/80 shadow-2xl lg:shadow-none
+        transition-all duration-300 ease-in-out
         flex flex-col
       `}
       >
-        <div className="p-4 border-b border-slate-200/80">
-          <h2 className="text-xl font-bold text-slate-800">Messages</h2>
+        {/* Collapse/Expand Button */}
+        <div className="flex items-center justify-between p-4 border-b border-slate-200/80">
+          <h2 className={`text-xl font-bold text-slate-800 transition-all duration-300 ${isSidebarCollapsed ? "opacity-0 w-0 overflow-hidden" : "opacity-100 w-auto"}`}>Messages</h2>
+          <button
+            className="p-2 rounded-full hover:bg-slate-100 transition-colors ml-auto"
+            onClick={() => setIsSidebarCollapsed((prev) => !prev)}
+            aria-label={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {isSidebarCollapsed ? <FaChevronRight /> : <FaChevronLeft />}
+          </button>
         </div>
 
         <div className="flex-1 overflow-y-auto">
@@ -1623,7 +1633,7 @@ const ChatPage: React.FC = () => {
               <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-r-2 border-indigo-500"></div>
             </div>
           ) : conversations.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-slate-400 p-8 text-center">
+            <div className={`flex flex-col items-center justify-center h-full text-slate-400 p-8 text-center ${isSidebarCollapsed ? "hidden" : ""}`}>
               <FaComments className="text-5xl mb-4 text-slate-300" />
               <span className="font-semibold text-lg text-slate-600">
                 No conversations yet
@@ -1640,66 +1650,68 @@ const ChatPage: React.FC = () => {
                   navigate(`/chat/${conversation.conversation_id}`);
                   setIsSidebarOpen(false); // Close sidebar on mobile
                 }}
-                className={`p-4 border-b border-slate-100/80 cursor-pointer transition-all duration-200 relative ${
+                className={`p-4 border-b border-slate-100/80 cursor-pointer transition-all duration-200 relative flex items-center ${
                   conversationId === conversation.conversation_id
                     ? "bg-indigo-50"
                     : "hover:bg-slate-100/70"
-                }`}
+                } ${isSidebarCollapsed ? "justify-center" : ""}`}
                 style={{ position: 'relative' }}
               >
                 {conversationId === conversation.conversation_id && (
                   <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-indigo-500 rounded-r-full"></div>
                 )}
-                <div className="flex items-center gap-3">
-                  <div className="relative shrink-0">
-                    <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full flex items-center justify-center shadow-md">
-                      <span className="text-white font-semibold text-lg">
-                        {conversation.other_user_name
-                          ?.charAt(0)
-                          .toUpperCase() || "U"}
-                      </span>
-                    </div>
-                    {conversation.unread_count > 0 && (
-                      <span className="absolute -top-1 -right-1 bg-pink-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold border-2 border-white">
-                        {conversation.unread_count > 9
-                          ? "9+"
-                          : conversation.unread_count}
-                      </span>
-                    )}
+                <div className="relative shrink-0">
+                  <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full flex items-center justify-center shadow-md">
+                    <span className="text-white font-semibold text-lg">
+                      {conversation.other_user_name
+                        ?.charAt(0)
+                        .toUpperCase() || "U"}
+                    </span>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-center">
-                      <p className="font-semibold text-slate-800 truncate">
-                        {conversation.pet_name ||
-                          conversation.other_user_name ||
-                          "Unknown User"}
-                      </p>
-                      {conversation.last_message_time && (
-                        <span className="text-xs text-slate-400 ml-2 shrink-0">
-                          {formatTime(conversation.last_message_time)}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-slate-500 truncate">
-                      {conversation.last_message || "No messages yet"}
-                    </p>
-                  </div>
-                  {/* Delete and Block buttons */}
-                  <div className="flex flex-col gap-1 ml-2">
-                    <button
-                      onClick={e => { e.stopPropagation(); setShowDeleteDialog(conversation.conversation_id); }}
-                      className="px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 text-xs font-semibold mb-1"
-                    >
-                      Delete
-                    </button>
-                    <button
-                      onClick={e => { e.stopPropagation(); setShowBlockDialog(conversation.conversation_id); }}
-                      className="px-2 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-xs font-semibold"
-                    >
-                      Block
-                    </button>
-                  </div>
+                  {conversation.unread_count > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-pink-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold border-2 border-white">
+                      {conversation.unread_count > 9
+                        ? "9+"
+                        : conversation.unread_count}
+                    </span>
+                  )}
                 </div>
+                {!isSidebarCollapsed && (
+                  <>
+                    <div className="flex-1 min-w-0 ml-3">
+                      <div className="flex justify-between items-center">
+                        <p className="font-semibold text-slate-800 truncate">
+                          {conversation.pet_name ||
+                            conversation.other_user_name ||
+                            "Unknown User"}
+                        </p>
+                        {conversation.last_message_time && (
+                          <span className="text-xs text-slate-400 ml-2 shrink-0">
+                            {formatTime(conversation.last_message_time)}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-slate-500 truncate">
+                        {conversation.last_message || "No messages yet"}
+                      </p>
+                    </div>
+                    {/* Delete and Block buttons */}
+                    <div className="flex flex-col gap-1 ml-2">
+                      <button
+                        onClick={e => { e.stopPropagation(); setShowDeleteDialog(conversation.conversation_id); }}
+                        className="px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 text-xs font-semibold mb-1"
+                      >
+                        Delete
+                      </button>
+                      <button
+                        onClick={e => { e.stopPropagation(); setShowBlockDialog(conversation.conversation_id); }}
+                        className="px-2 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-xs font-semibold"
+                      >
+                        Block
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             ))
           )}
