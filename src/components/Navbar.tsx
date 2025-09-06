@@ -13,10 +13,12 @@ import {
 import { useNavigate } from "react-router-dom";
 import { NotificationBadge } from "./NotificationBadge";
 import { ChatBadge } from "./ChatBadge";
+import { SignOutConfirmationModal } from "./SignOutConfirmationModal";
 
 const Navbar = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [showSignOutModal, setShowSignOutModal] = useState(false);
   const { signOut, user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -33,6 +35,16 @@ const Navbar = () => {
 
   const isActive = (path: string) => {
     return location.pathname === path;
+  };
+
+  const handleSignOutClick = () => {
+    setShowSignOutModal(true);
+    setMenuOpen(false);
+  };
+
+  const handleSignOutConfirm = () => {
+    signOut();
+    navigate("/");
   };
 
   // Define navigation items based on authentication status
@@ -192,11 +204,7 @@ const Navbar = () => {
                       </button>
                       <button
                         className="w-full text-left px-4 py-3 hover:bg-red-50 text-red-600 font-['Inter'] flex items-center space-x-3 transition-colors duration-200"
-                        onClick={() => {
-                          setMenuOpen(false);
-                          signOut();
-                          navigate("/");
-                        }}
+                        onClick={handleSignOutClick}
                       >
                         <FaSignOutAlt className="text-red-500" />
                         <span>Sign Out</span>
@@ -303,10 +311,7 @@ const Navbar = () => {
                   </div>
                 </div>
                 <button
-                  onClick={() => {
-                    signOut();
-                    setMenuOpen(false);
-                  }}
+                  onClick={handleSignOutClick}
                   className="w-full bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white px-4 py-3 rounded-lg font-semibold transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center gap-3 font-['Inter']"
                 >
                   <FaSignOutAlt />
@@ -328,6 +333,14 @@ const Navbar = () => {
           </div>
         </div>
       </div>
+
+      {/* Sign Out Confirmation Modal */}
+      <SignOutConfirmationModal
+        isOpen={showSignOutModal}
+        onClose={() => setShowSignOutModal(false)}
+        onConfirm={handleSignOutConfirm}
+        userName={user?.user_metadata?.full_name || user?.email?.split("@")[0]}
+      />
     </nav>
   );
 };

@@ -6,6 +6,7 @@ import CreateVetAccount from "../components/CreateVetAccount";
 import { Routes, Route, useNavigate } from "react-router-dom";
 import { FaTimes } from "react-icons/fa";
 import { useAuth } from "../context/AuthContext";
+import { SignOutConfirmationModal } from "../components/SignOutConfirmationModal";
 
 interface Post {
   id: number;
@@ -52,24 +53,42 @@ interface DashboardStats {
 const DashboardNavbar = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const [showSignOutModal, setShowSignOutModal] = useState(false);
+
+  const handleSignOutClick = () => {
+    setShowSignOutModal(true);
+  };
+
+  const handleSignOutConfirm = () => {
+    signOut();
+    navigate("/login");
+  };
+
   return (
-    <nav className="fixed top-0 left-0 w-full h-16 bg-violet-700 text-white flex items-center justify-between px-8 shadow z-50">
-      <div className="font-bold text-lg tracking-wide">Pawpal Admin</div>
-      <div className="flex items-center gap-4">
-        <span className="font-medium">
-          {user?.user_metadata?.full_name || user?.email || "Admin"}
-        </span>
-        <button
-          onClick={() => {
-            signOut();
-            navigate("/login");
-          }}
-          className="bg-white text-violet-700 px-4 py-2 rounded font-semibold hover:bg-violet-100 transition-colors"
-        >
-          Sign Out
-        </button>
-      </div>
-    </nav>
+    <>
+      <nav className="fixed top-0 left-0 w-full h-16 bg-violet-700 text-white flex items-center justify-between px-8 shadow z-50">
+        <div className="font-bold text-lg tracking-wide">Pawpal Admin</div>
+        <div className="flex items-center gap-4">
+          <span className="font-medium">
+            {user?.user_metadata?.full_name || user?.email || "Admin"}
+          </span>
+          <button
+            onClick={handleSignOutClick}
+            className="bg-white text-violet-700 px-4 py-2 rounded font-semibold hover:bg-violet-100 transition-colors"
+          >
+            Sign Out
+          </button>
+        </div>
+      </nav>
+
+      {/* Sign Out Confirmation Modal */}
+      <SignOutConfirmationModal
+        isOpen={showSignOutModal}
+        onClose={() => setShowSignOutModal(false)}
+        onConfirm={handleSignOutConfirm}
+        userName={user?.user_metadata?.full_name || user?.email?.split("@")[0]}
+      />
+    </>
   );
 };
 

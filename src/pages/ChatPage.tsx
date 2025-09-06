@@ -67,10 +67,8 @@ const ChatPage: React.FC = () => {
   // Add state for sidebar collapse
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
-  // Add state for block/delete dialogs
+  // Add state for delete dialog
   const [showDeleteDialog, setShowDeleteDialog] = useState<string | null>(null);
-  const [showBlockDialog, setShowBlockDialog] = useState<string | null>(null);
-  const [blockLoading, setBlockLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   // Add state for image upload
@@ -214,10 +212,10 @@ const ChatPage: React.FC = () => {
           { user_id: userId }
         );
 
-        if (!emailError && emailData && emailData.email) {
+        if (!emailError && emailData && emailData[0]?.email) {
           return {
-            name: emailData.email,
-            email: emailData.email,
+            name: emailData[0].email,
+            email: emailData[0].email,
             avatar: null,
           };
         }
@@ -322,19 +320,113 @@ const ChatPage: React.FC = () => {
 
                 // Set adopter_name and owner_name if they aren't already set
                 if (convo.adopter_name === null && convo.owner_name === null) {
-                  // Try to determine adopter and owner (you are one of them)
-                  // This is a simplified approach
-                  const yourName = user.email || "You";
-
                   if (members && members.length > 0) {
                     otherUserId = members[0].user_id;
+                    
+                    // Check adoption requests to determine proper roles
+                    const { data: adoptionData, error: adoptionError } = await supabase
+                      .from("adoption_requests")
+                      .select("requester_id, owner_id, pet_name")
+                      .or(`requester_id.eq.${user.id},owner_id.eq.${user.id}`)
+                      .or(`requester_id.eq.${otherUserId},owner_id.eq.${otherUserId}`)
+                      .order("updated_at", { ascending: false })
+                      .limit(1);
+
+                    if (!adoptionError && adoptionData && adoptionData.length > 0) {
+                      const adoption = adoptionData[0];
+                      
+                      // Get both users' emails
+                      const [currentUserEmailResult, otherUserEmailResult] = await Promise.all([
+                        supabase.rpc("get_user_email", { user_id: user.id }),
+                        supabase.rpc("get_user_email", { user_id: otherUserId })
+                      ]);
+
+                      console.log("Current user email result:", currentUserEmailResult);
+                      console.log("Other user email result:", otherUserEmailResult);
+                      
+                      let currentUserEmail = currentUserEmailResult.data?.[0]?.email || "You";
+                      let otherUserEmail = otherUserEmailResult.data?.[0]?.email || "Other User";
+                      
+                      // If the RPC function didn't work, try direct approach
+                      if (currentUserEmail === "You" && user.email) {
+                        currentUserEmail = user.email;
+                      }
+                      
+                      if (otherUserEmail === "Other User") {
+                        // Try to get the other user's info from profiles table
+                        try {
+                          const { data: profileData, error: profileError } = await supabase
+                            .from('profiles')
+                            .select('full_name')
+                            .eq('id', otherUserId)
+                            .single();
+                          
+                          if (!profileError && profileData?.full_name) {
+                            otherUserEmail = profileData.full_name;
+                            console.log("Got other user name via profiles table:", otherUserEmail);
+                          }
+                        } catch (profileQueryError) {
+                          console.log("Profile query failed, using fallback");
+                        }
+                      }
+                      
+                      console.log("Final current user email:", currentUserEmail);
+                      console.log("Final other user email:", otherUserEmail);
+
+                      // Determine who is adopter and who is owner
+                      let adopterName, ownerName;
+                      if (user.id === adoption.requester_id) {
+                        // Current user is the adopter
+                        adopterName = currentUserEmail;
+                        ownerName = otherUserEmail;
+                      } else {
+                        // Current user is the owner
+                        adopterName = otherUserEmail;
+                        ownerName = currentUserEmail;
+                      }
+
+                      // Update conversation with participant names
+                      await supabase
+                        .from("conversations")
+                        .update({
+                          adopter_name: adopterName,
+                          owner_name: ownerName,
+                        })
+                        .eq("id", convo.id);
+
+                      // Set values for current session
+                      convo.adopter_name = adopterName;
+                      convo.owner_name = ownerName;
+                    } else {
+                      // Fallback to simple approach if no adoption request found
+                      const yourName = user.email || "You";
                     const { data: otherUserEmailResult } = await supabase.rpc(
                       "get_user_email",
                       { user_id: otherUserId }
                     );
 
-                    const otherUserEmail =
-                      otherUserEmailResult?.email || "Other User";
+                      console.log("Fallback other user email result:", otherUserEmailResult);
+                      let otherUserEmail = otherUserEmailResult?.data?.[0]?.email || "Other User";
+                      
+                      // If the RPC function didn't work, try profiles table
+                      if (otherUserEmail === "Other User") {
+                        try {
+                          const { data: profileData, error: profileError } = await supabase
+                            .from('profiles')
+                            .select('full_name')
+                            .eq('id', otherUserId)
+                            .single();
+                          
+                          if (!profileError && profileData?.full_name) {
+                            otherUserEmail = profileData.full_name;
+                            console.log("Got other user name via profiles table (fallback):", otherUserEmail);
+                          }
+                        } catch (profileQueryError) {
+                          console.log("Profile query failed in fallback, using default");
+                        }
+                      }
+                      
+                      console.log("Fallback other user email:", otherUserEmail);
 
                     // Update conversation with participant names
                     await supabase
@@ -348,6 +440,7 @@ const ChatPage: React.FC = () => {
                     // Set values for current session
                     convo.adopter_name = yourName;
                     convo.owner_name = otherUserEmail;
+                    }
                   }
                 }
 
@@ -507,6 +600,24 @@ const ChatPage: React.FC = () => {
                   );
                 }
 
+                // Determine the display name for the other user
+                let displayName = otherUserInfo.name || "User";
+                
+                // If we have adopter_name and owner_name, show the appropriate one
+                if (convo.adopter_name && convo.owner_name) {
+                  // Show the other person's name (not the current user's name)
+                  if (user.email === convo.adopter_name) {
+                    // Current user is adopter, show owner name
+                    displayName = convo.owner_name;
+                  } else if (user.email === convo.owner_name) {
+                    // Current user is owner, show adopter name
+                    displayName = convo.adopter_name;
+                  } else {
+                    // Fallback to other user info
+                    displayName = otherUserInfo.name || "User";
+                  }
+                }
+
                 const processedConvo = {
                   conversation_id: convo.id,
                   title: convo.title || "Chat",
@@ -526,7 +637,7 @@ const ChatPage: React.FC = () => {
                       ? lastMessage[0].sender_id
                       : null,
                   other_user_id: otherUserId,
-                  other_user_name: otherUserInfo.name || "User",
+                  other_user_name: displayName,
                   other_user_avatar: otherUserInfo.avatar,
                   pet_name: convo.pet_name || otherUserInfo.name,
                   post_id: convo.post_id,
@@ -664,7 +775,8 @@ const ChatPage: React.FC = () => {
           sender_id,
           content,
           created_at,
-          is_read
+          is_read,
+          image_url
         `
         )
         .eq("conversation_id", conversationId)
@@ -731,6 +843,56 @@ const ChatPage: React.FC = () => {
         }
       }
 
+      // Get the other user in this conversation to determine roles
+      const { data: members, error: membersError } = await supabase
+        .from("user_conversations")
+        .select("user_id")
+        .eq("conversation_id", conversationId)
+        .neq("user_id", user.id);
+
+      let otherUserId = null;
+      let otherUserName = null;
+
+      if (!membersError && members && members.length > 0) {
+        otherUserId = members[0].user_id;
+
+        // Check adoption requests to determine roles
+        const { data: adoptionData, error: adoptionError } = await supabase
+          .from("adoption_requests")
+          .select("requester_id, owner_id, pet_name")
+          .or(`requester_id.eq.${user.id},owner_id.eq.${user.id}`)
+          .or(`requester_id.eq.${otherUserId},owner_id.eq.${otherUserId}`)
+          .order("updated_at", { ascending: false })
+          .limit(1);
+
+        if (!adoptionError && adoptionData && adoptionData.length > 0) {
+          // Get the other user's email/name
+          const { data: otherUserEmailResult } = await supabase.rpc(
+            "get_user_email",
+            { user_id: otherUserId }
+          );
+          otherUserName = otherUserEmailResult?.data?.[0]?.email || "Other User";
+          
+          // If the RPC function didn't work, try profiles table
+          if (otherUserName === "Other User") {
+            try {
+              const { data: profileData, error: profileError } = await supabase
+                .from('profiles')
+                .select('full_name')
+                .eq('id', otherUserId)
+                .single();
+              
+              if (!profileError && profileData?.full_name) {
+                otherUserName = profileData.full_name;
+                console.log("Got other user name via profiles table (fetchMessages):", otherUserName);
+              }
+            } catch (profileQueryError) {
+              console.log("Profile query failed in fetchMessages, using default");
+            }
+          }
+        }
+      }
+
       // Format messages with sender info
       const formattedMessages = await Promise.all(
         data.map(async (msg: Message) => {
@@ -743,12 +905,28 @@ const ChatPage: React.FC = () => {
               content: msg.content,
               created_at: msg.created_at,
               is_read: msg.is_read,
+              image_url: msg.image_url,
               sender_name: "You",
               sender_avatar: null,
             };
           }
 
-          // If we have a pet name, use it for the other person's messages
+          // For the other person's messages, show their actual name (adopter/owner)
+          if (otherUserName) {
+            return {
+              id: msg.id,
+              conversation_id: msg.conversation_id,
+              sender_id: msg.sender_id,
+              content: msg.content,
+              created_at: msg.created_at,
+              is_read: msg.is_read,
+              image_url: msg.image_url,
+              sender_name: otherUserName,
+              sender_avatar: null,
+            };
+          }
+
+          // Fallback to pet name if we can't determine the user name
           if (petName) {
             return {
               id: msg.id,
@@ -757,12 +935,13 @@ const ChatPage: React.FC = () => {
               content: msg.content,
               created_at: msg.created_at,
               is_read: msg.is_read,
+              image_url: msg.image_url,
               sender_name: petName,
               sender_avatar: null,
             };
           }
 
-          // Otherwise get the other user's info
+          // Final fallback - get the other user's info
           const senderInfo = await getUserInfo(msg.sender_id);
 
           return {
@@ -772,6 +951,7 @@ const ChatPage: React.FC = () => {
             content: msg.content,
             created_at: msg.created_at,
             is_read: msg.is_read,
+            image_url: msg.image_url,
             sender_name: senderInfo.name,
             sender_avatar: senderInfo.avatar,
           };
@@ -874,7 +1054,7 @@ const ChatPage: React.FC = () => {
         // Check for adoption requests between these users
         const { data: adoptionData, error: adoptionError } = await supabase
           .from("adoption_requests")
-          .select("pet_name, post_id, status")
+          .select("pet_name, post_id, status, requester_id, owner_id")
           .or(`requester_id.eq.${user.id},owner_id.eq.${user.id}`)
           .or(`requester_id.eq.${otherUserId},owner_id.eq.${otherUserId}`)
           .order("updated_at", { ascending: false })
@@ -886,22 +1066,63 @@ const ChatPage: React.FC = () => {
           adoptionData.length > 0 &&
           adoptionData[0].pet_name
         ) {
-          // Found an adoption request with pet name
-          const userInfo = {
-            name: adoptionData[0].pet_name,
-            email: "",
-            avatar: null,
-          };
+          const adoption = adoptionData[0];
+          
+          // Get both users' emails to set proper names
+          const [currentUserEmailResult, otherUserEmailResult] = await Promise.all([
+            supabase.rpc("get_user_email", { user_id: user.id }),
+            supabase.rpc("get_user_email", { user_id: otherUserId })
+          ]);
 
-          // Update chat title in the document
-          document.title = `Chat with ${userInfo.name}`;
+          let currentUserEmail = currentUserEmailResult.data?.[0]?.email || "You";
+          let otherUserEmail = otherUserEmailResult.data?.[0]?.email || "Other User";
+          
+          // If the RPC function didn't work, try direct approach
+          if (currentUserEmail === "You" && user.email) {
+            currentUserEmail = user.email;
+          }
+          
+          if (otherUserEmail === "Other User") {
+            try {
+              const { data: profileData, error: profileError } = await supabase
+                .from('profiles')
+                .select('full_name')
+                .eq('id', otherUserId)
+                .single();
+              
+              if (!profileError && profileData?.full_name) {
+                otherUserEmail = profileData.full_name;
+                console.log("Got other user name via profiles table (fetchConversationDetails):", otherUserEmail);
+              }
+            } catch (profileQueryError) {
+              console.log("Profile query failed in fetchConversationDetails, using default");
+            }
+          }
+
+          // Determine who is adopter and who is owner
+          let adopterName, ownerName;
+          if (user.id === adoption.requester_id) {
+            // Current user is the adopter
+            adopterName = currentUserEmail;
+            ownerName = otherUserEmail;
+          } else {
+            // Current user is the owner
+            adopterName = otherUserEmail;
+            ownerName = currentUserEmail;
+          }
+
+          // Update chat title in the document - show the other person's name
+          document.title = `Chat with ${otherUserEmail}`;
 
           // Store this info in the conversation for future use
           await supabase
             .from("conversations")
             .update({
-              pet_name: adoptionData[0].pet_name,
-              post_id: adoptionData[0].post_id,
+              pet_name: adoption.pet_name,
+              post_id: adoption.post_id,
+              adopter_name: adopterName,
+              owner_name: ownerName,
+              title: adoption.pet_name,
             })
             .eq("id", conversationId);
 
@@ -1337,9 +1558,27 @@ const ChatPage: React.FC = () => {
               formattedMessage.sender_name = "You";
               formattedMessage.sender_avatar = null;
             } else {
+              // Get the other user's name from the conversation data
+              const currentConversation = conversations.find(c => c.conversation_id === conversationId);
+              if (currentConversation && currentConversation.adopter_name && currentConversation.owner_name) {
+                // Determine which name to show based on who sent the message
+                if (user.email === currentConversation.adopter_name) {
+                  // Current user is adopter, show owner name for other person's messages
+                  formattedMessage.sender_name = currentConversation.owner_name;
+                } else if (user.email === currentConversation.owner_name) {
+                  // Current user is owner, show adopter name for other person's messages
+                  formattedMessage.sender_name = currentConversation.adopter_name;
+                } else {
+                  // Fallback to getUserInfo
               const senderInfo = await getUserInfo(newMessage.sender_id);
               formattedMessage.sender_name = senderInfo.name;
-              formattedMessage.sender_avatar = senderInfo.avatar;
+                }
+              } else {
+                // Fallback to getUserInfo if conversation data not available
+                const senderInfo = await getUserInfo(newMessage.sender_id);
+                formattedMessage.sender_name = senderInfo.name;
+              }
+              formattedMessage.sender_avatar = null;
             }
             setMessages((prevMessages) => [...prevMessages, formattedMessage]);
             // If this is not our message, mark it as read
@@ -1424,6 +1663,7 @@ const ChatPage: React.FC = () => {
         content: message.trim(),
         created_at: new Date().toISOString(),
         is_read: false,
+        image_url: null,
       };
 
       // Insert the message
@@ -1461,20 +1701,48 @@ const ChatPage: React.FC = () => {
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user || !conversationId) return;
+    
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+    
+    // Validate file size (5MB limit)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image size must be less than 5MB');
+      return;
+    }
+    
     setUploadingImage(true);
     try {
       // Create a unique filename
       const fileExt = file.name.split('.').pop();
       const fileName = `${user.id}_${Date.now()}.${fileExt}`;
       const filePath = `${conversationId}/${fileName}`;
+      
+      console.log('Uploading image:', { fileName, filePath, fileSize: file.size, fileType: file.type });
+      
       // Upload to Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from('chat-images')
-        .upload(filePath, file, { upsert: true });
-      if (uploadError) throw uploadError;
+        .upload(filePath, file, { 
+          upsert: true,
+          contentType: file.type,
+          cacheControl: '3600'
+        });
+        
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        throw uploadError;
+      }
+      
       // Get public URL
       const { data: publicUrlData } = supabase.storage.from('chat-images').getPublicUrl(filePath);
       const imageUrl = publicUrlData.publicUrl;
+      
+      console.log('Image uploaded successfully:', imageUrl);
+      
       // Send message with image_url
       const newMessage = {
         conversation_id: conversationId,
@@ -1484,10 +1752,18 @@ const ChatPage: React.FC = () => {
         created_at: new Date().toISOString(),
         is_read: false,
       };
-      await supabase.from('messages').insert(newMessage);
+      
+      const { error: insertError } = await supabase.from('messages').insert(newMessage);
+      
+      if (insertError) {
+        console.error('Message insert error:', insertError);
+        throw insertError;
+      }
+      
       toast.success('Image sent!');
     } catch (err) {
-      toast.error('Failed to send image');
+      console.error('Image upload error:', err);
+      toast.error(`Failed to send image: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
       setUploadingImage(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -1537,27 +1813,6 @@ const ChatPage: React.FC = () => {
     }
   };
 
-  // Block user
-  const handleBlockUser = async (convId: string) => {
-    setBlockLoading(true);
-    const convo = conversations.find(c => c.conversation_id === convId);
-    const otherUserId = convo?.other_user_id;
-    if (!otherUserId) {
-      toast.error("Could not find user to block");
-      setBlockLoading(false);
-      return;
-    }
-    try {
-      await supabase.from("blocked_users").insert({ blocker_id: user!.id, blocked_id: otherUserId });
-      toast.success("User blocked");
-      setShowBlockDialog(null);
-      if (conversationId === convId) navigate("/chat");
-    } catch (err) {
-      toast.error("Failed to block user");
-    } finally {
-      setBlockLoading(false);
-    }
-  };
 
   // Render the chat interface or conversation list
   if (!user) {
@@ -1681,8 +1936,8 @@ const ChatPage: React.FC = () => {
                     <div className="flex-1 min-w-0 ml-3">
                       <div className="flex justify-between items-center">
                         <p className="font-semibold text-slate-800 truncate">
-                          {conversation.pet_name ||
-                            conversation.other_user_name ||
+                          {conversation.other_user_name ||
+                            conversation.pet_name ||
                             "Unknown User"}
                         </p>
                         {conversation.last_message_time && (
@@ -1695,19 +1950,13 @@ const ChatPage: React.FC = () => {
                         {conversation.last_message || "No messages yet"}
                       </p>
                     </div>
-                    {/* Delete and Block buttons */}
+                    {/* Delete button */}
                     <div className="flex flex-col gap-1 ml-2">
                       <button
                         onClick={e => { e.stopPropagation(); setShowDeleteDialog(conversation.conversation_id); }}
-                        className="px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 text-xs font-semibold mb-1"
+                        className="px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 text-xs font-semibold"
                       >
                         Delete
-                      </button>
-                      <button
-                        onClick={e => { e.stopPropagation(); setShowBlockDialog(conversation.conversation_id); }}
-                        className="px-2 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-xs font-semibold"
-                      >
-                        Block
                       </button>
                     </div>
                   </>
@@ -1748,10 +1997,10 @@ const ChatPage: React.FC = () => {
                   <h3 className="font-bold text-slate-800 text-lg">
                     {conversations.find(
                       (c) => c.conversation_id === conversationId
-                    )?.pet_name ||
+                    )?.other_user_name ||
                       conversations.find(
                         (c) => c.conversation_id === conversationId
-                      )?.other_user_name ||
+                      )?.pet_name ||
                       "Unknown User"}
                   </h3>
                   <p className="text-sm text-emerald-500 font-medium">Online</p>
@@ -1770,12 +2019,6 @@ const ChatPage: React.FC = () => {
                 className="px-3 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 text-xs font-semibold"
               >
                 Delete
-              </button>
-              <button
-                onClick={() => setShowBlockDialog(conversationId)}
-                className="px-3 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 text-xs font-semibold"
-              >
-                Block
               </button>
             </div>
           )}
@@ -1814,6 +2057,13 @@ const ChatPage: React.FC = () => {
                         alt="Sent image"
                         className="mb-2 max-w-xs max-h-60 rounded-lg border"
                         style={{ objectFit: 'cover' }}
+                        onError={(e) => {
+                          console.error('Failed to load image:', message.image_url);
+                          e.currentTarget.style.display = 'none';
+                        }}
+                        onLoad={() => {
+                          console.log('Image loaded successfully:', message.image_url);
+                        }}
                       />
                     )}
                     {message.content && <p className="text-sm leading-relaxed">{message.content}</p>}
@@ -1923,18 +2173,6 @@ const ChatPage: React.FC = () => {
             <div className="flex gap-2 justify-end">
               <button onClick={() => setShowDeleteDialog(null)} className="px-4 py-2 bg-gray-200 rounded">Cancel</button>
               <button onClick={() => handleDeleteConversation(showDeleteDialog)} disabled={deleteLoading} className="px-4 py-2 bg-red-500 text-white rounded">{deleteLoading ? "Deleting..." : "Delete"}</button>
-            </div>
-          </div>
-        </div>
-      )}
-      {showBlockDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-transparent">
-          <div className="bg-white rounded-lg p-6 shadow-lg w-full max-w-xs">
-            <h4 className="font-bold mb-4">Block User?</h4>
-            <p className="mb-4 text-sm">You will no longer receive messages from this user. You cannot undo this action.</p>
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => setShowBlockDialog(null)} className="px-4 py-2 bg-gray-200 rounded">Cancel</button>
-              <button onClick={() => handleBlockUser(showBlockDialog)} disabled={blockLoading} className="px-4 py-2 bg-gray-700 text-white rounded">{blockLoading ? "Blocking..." : "Block"}</button>
             </div>
           </div>
         </div>
