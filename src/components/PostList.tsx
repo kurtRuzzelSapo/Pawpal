@@ -95,8 +95,8 @@ export const PostList: React.FC<PostListProps> = ({ posts: initialPosts }) => {
         <div className="text-center text-violet-600 py-8 sm:py-10 col-span-full font-['Poppins']">
           <FaPaw className="text-4xl sm:text-5xl mx-auto mb-3 sm:mb-4 text-violet-300" />
           <p className="text-lg sm:text-xl mb-2">No posts found</p>
-          <p className="text-violet-500 mb-3 sm:mb-4 text-sm sm:text-base">
-            Be the first pet owner to create a post!
+          <p className="text-violet-500 mb-3 sm:mb-4 text-sm sm:text-base ">
+            Be the first pet owner to create a post!  
           </p>
           <Link
             to="/create"
