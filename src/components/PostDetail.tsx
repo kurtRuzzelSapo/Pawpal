@@ -893,7 +893,7 @@ export const PostDetail = ({ postId }: { postId: string }) => {
                         Age
                       </p>
                       <p className="text-xl font-bold text-violet-800">
-                        {post.age} months
+                        {post.age} years
                       </p>
                     </div>
                     <div className="bg-violet-50 p-4 rounded-2xl">

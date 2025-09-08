@@ -253,7 +253,7 @@ const Home = () => {
             {/* Filter by Age */}
             <div>
               <label className="block text-sm font-medium text-violet-700 mb-2">
-                Age (months)
+                Age (years)
               </label>
               <div className="flex gap-2">
                 <input

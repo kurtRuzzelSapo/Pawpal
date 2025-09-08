@@ -564,7 +564,7 @@ export const CreatePost = () => {
                       className="mb-4 font-semibold text-violet-700 font-['Poppins'] flex items-center gap-2 text-lg"
                     >
                       <FaCalendarAlt className="text-violet-500" />
-                      Age (months)
+                      Age (years)
                     </label>
                     <input
                       type="number"

@@ -151,7 +151,7 @@ export const PostList: React.FC<PostListProps> = ({ posts: initialPosts }) => {
                           Age
                         </p>
                         <p className="font-bold text-gray-700 text-sm sm:text-base">
-                          {post.age !== undefined ? `${post.age} mo` : "N/A"}
+                          {post.age !== undefined ? `${post.age} yrs` : "N/A"}
                         </p>
                       </div>
                       <div>
