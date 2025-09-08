@@ -40,8 +40,8 @@ const DeleteConfirmationModal: React.FC<DeleteModalProps> = ({
 }) => {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-      <div className="bg-white rounded-lg p-8 shadow-2xl">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+      <div className="bg-white rounded-lg p-4 sm:p-6 lg:p-8 shadow-2xl max-w-md w-full">
         <h2 className="text-xl font-bold mb-4">Confirm Deletion</h2>
         <p>
           Are you sure you want to delete this post? This action cannot be
@@ -99,8 +99,8 @@ const UpdatePostModal: React.FC<UpdateModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex justify-center items-center z-50">
-      <div className="bg-white rounded-lg p-8 shadow-2xl relative max-w-lg w-full">
+    <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex justify-center items-center z-50 p-4">
+      <div className="bg-white rounded-lg p-4 sm:p-6 lg:p-8 shadow-2xl relative max-w-lg w-full max-h-[90vh] overflow-y-auto">
         <button
           onClick={onClose}
           className="absolute top-2 right-2 text-gray-500 hover:text-gray-700 text-2xl font-bold p-2"
@@ -420,12 +420,12 @@ const VaccinationProofModal: React.FC<{
 }> = ({ isOpen, onClose, imageUrl }) => {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex justify-center items-center z-50">
-      <div className="bg-white rounded-lg p-6 shadow-2xl relative max-w-lg w-full">
+    <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex justify-center items-center z-50 p-4">
+      <div className="bg-white rounded-lg p-4 sm:p-6 shadow-2xl relative max-w-lg w-full max-h-[90vh] overflow-y-auto">
         <button
           onClick={onClose}
-          className="absolute top-2 right-2 text-gray-500 hover:text-gray-700 text-5xl font-bold p-2"
-          style={{ lineHeight: "1", width: "2.5rem", height: "2.5rem" }}
+          className="absolute top-2 right-2 text-gray-500 hover:text-gray-700 text-3xl sm:text-5xl font-bold p-2"
+          style={{ lineHeight: "1", width: "2rem", height: "2rem" }}
         >
           &times;
         </button>
@@ -461,8 +461,8 @@ const AdoptionReasonModal: React.FC<{
   };
 
   return (
-    <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex justify-center items-center z-50">
-      <div className="bg-white rounded-lg p-6 shadow-2xl relative max-w-lg w-full">
+    <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex justify-center items-center z-50 p-4">
+      <div className="bg-white rounded-lg p-4 sm:p-6 shadow-2xl relative max-w-lg w-full max-h-[90vh] overflow-y-auto">
         <button
           onClick={onClose}
           className="absolute top-2 right-2 text-gray-500 hover:text-gray-700 text-2xl font-bold p-2"
@@ -722,39 +722,41 @@ export const PostDetail = ({ postId }: { postId: string }) => {
           </div>
 
           {/* Main content */}
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 sm:pb-16">
             <div className="lg:grid lg:grid-cols-12 lg:gap-12 items-start">
               {/* Left Column (Images & Actions) */}
-              <div className="lg:col-span-5 space-y-8 sticky top-28">
+              <div className="lg:col-span-5 space-y-6 sm:space-y-8 lg:sticky lg:top-28">
                 <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border border-violet-100 overflow-hidden">
                   <img
                     src={post.image_url}
                     alt={post.name}
-                    className="w-full h-[500px] object-cover"
+                    className="w-full h-[300px] sm:h-[400px] lg:h-[500px] object-cover"
                   />
                 </div>
 
                 {/* Owner controls */}
                 {isOwner && (
-                  <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border border-violet-100 p-6 flex gap-4">
-                    <button
-                      onClick={() => setIsUpdateModalOpen(true)}
-                      className="flex-1 bg-gradient-to-r from-blue-500 to-sky-500 text-white px-6 py-3 rounded-xl font-semibold transform hover:scale-105 transition-all duration-300 shadow-lg"
-                    >
-                      Update Post
-                    </button>
-                    <button
-                      onClick={() => setIsDeleteModalOpen(true)}
-                      className="flex-1 bg-gradient-to-r from-red-500 to-pink-500 text-white px-6 py-3 rounded-xl font-semibold transform hover:scale-105 transition-all duration-300 shadow-lg"
-                    >
-                      Delete Post
-                    </button>
+                  <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border border-violet-100 p-4 sm:p-6">
+                    <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                      <button
+                        onClick={() => setIsUpdateModalOpen(true)}
+                        className="flex-1 bg-gradient-to-r from-blue-500 to-sky-500 text-white px-4 sm:px-6 py-3 sm:py-3 rounded-xl font-semibold transform hover:scale-105 transition-all duration-300 shadow-lg text-sm sm:text-base"
+                      >
+                        Update Post
+                      </button>
+                      <button
+                        onClick={() => setIsDeleteModalOpen(true)}
+                        className="flex-1 bg-gradient-to-r from-red-500 to-pink-500 text-white px-4 sm:px-6 py-3 sm:py-3 rounded-xl font-semibold transform hover:scale-105 transition-all duration-300 shadow-lg text-sm sm:text-base"
+                      >
+                        Delete Post
+                      </button>
+                    </div>
                   </div>
                 )}
 
                 {/* Adoption Request Button */}
                 {!isOwner && user && (
-                  <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border border-violet-100 p-6">
+                  <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border border-violet-100 p-4 sm:p-6">
                     {requestStatus === "approved" ? (
                       <div className="text-center">
                         <p className="font-semibold text-green-600">
@@ -773,7 +775,7 @@ export const PostDetail = ({ postId }: { postId: string }) => {
                               },
                             })
                           }
-                          className="mt-4 w-full flex items-center justify-center gap-3 px-5 py-3 bg-gradient-to-br from-indigo-500 to-purple-500 text-white rounded-full hover:from-indigo-600 hover:to-purple-600 transition-all shadow-lg"
+                          className="mt-4 w-full flex items-center justify-center gap-3 px-4 sm:px-5 py-3 bg-gradient-to-br from-indigo-500 to-purple-500 text-white rounded-full hover:from-indigo-600 hover:to-purple-600 transition-all shadow-lg text-sm sm:text-base"
                         >
                           <FaEnvelope />
                           Chat with Owner
@@ -794,7 +796,7 @@ export const PostDetail = ({ postId }: { postId: string }) => {
                         <button
                           onClick={handleCancelRequest}
                           disabled={isRequesting}
-                          className="mt-4 w-full flex items-center justify-center gap-3 px-5 py-3 bg-gradient-to-br from-red-500 to-pink-500 text-white rounded-full hover:from-red-600 hover:to-pink-600 transition-all shadow-lg disabled:opacity-50"
+                          className="mt-4 w-full flex items-center justify-center gap-3 px-4 sm:px-5 py-3 bg-gradient-to-br from-red-500 to-pink-500 text-white rounded-full hover:from-red-600 hover:to-pink-600 transition-all shadow-lg disabled:opacity-50 text-sm sm:text-base"
                         >
                           {isRequesting ? "Cancelling..." : "Cancel Request"}
                         </button>
@@ -803,10 +805,10 @@ export const PostDetail = ({ postId }: { postId: string }) => {
                       <button
                         onClick={() => setIsAdoptionReasonModalOpen(true)}
                         disabled={isRequesting}
-                        className="w-full flex items-center justify-center gap-3 px-5 py-3 bg-gradient-to-br from-indigo-500 to-purple-500 text-white rounded-full hover:from-indigo-600 hover:to-purple-600 transition-all shadow-lg disabled:opacity-50"
+                        className="w-full flex items-center justify-center gap-3 px-4 sm:px-5 py-3 bg-gradient-to-br from-indigo-500 to-purple-500 text-white rounded-full hover:from-indigo-600 hover:to-purple-600 transition-all shadow-lg disabled:opacity-50"
                       >
-                        <FaHandHoldingHeart className="text-xl" />
-                        <span className="font-semibold text-lg">
+                        <FaHandHoldingHeart className="text-lg sm:text-xl" />
+                        <span className="font-semibold text-sm sm:text-lg">
                           {isRequesting
                             ? "Sending Request..."
                             : "Request to Adopt"}
@@ -818,7 +820,7 @@ export const PostDetail = ({ postId }: { postId: string }) => {
 
                 {/* Message Button */}
                 {!isOwner && user && post.user_id && (
-                  <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border border-violet-100 p-6">
+                  <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border border-violet-100 p-4 sm:p-6">
                     <div className="text-center">
                       <p className="text-sm text-gray-500 mb-4">
                         Have questions about this pet?
@@ -834,7 +836,7 @@ export const PostDetail = ({ postId }: { postId: string }) => {
                 {/* Additional Photos */}
                 {post.additional_photos &&
                   post.additional_photos.length > 0 && (
-                    <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border border-violet-100 p-6">
+                    <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border border-violet-100 p-4 sm:p-6">
                       <h3 className="font-bold text-xl text-violet-800 font-['Quicksand'] mb-4">
                         More Photos
                       </h3>
@@ -852,12 +854,12 @@ export const PostDetail = ({ postId }: { postId: string }) => {
                   )}
               </div>
               {/* Right Column (Details) */}
-              <div className="lg:col-span-7 space-y-8 mt-8 lg:mt-0">
-                <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border border-violet-100 p-8">
-                  <h1 className="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-violet-600 via-purple-600 to-pink-600 text-transparent bg-clip-text font-['Quicksand'] mb-2">
+              <div className="lg:col-span-7 space-y-6 sm:space-y-8 mt-6 sm:mt-8 lg:mt-0">
+                <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border border-violet-100 p-4 sm:p-6 lg:p-8">
+                  <h1 className="text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-bold bg-gradient-to-r from-violet-600 via-purple-600 to-pink-600 text-transparent bg-clip-text font-['Quicksand'] mb-2">
                     {post.name}
                   </h1>
-                  <div className="flex items-center gap-4 text-gray-500 mb-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-gray-500 mb-4 sm:mb-6">
                     <div className="flex items-center gap-2">
                       <FaMapMarkerAlt />
                       <span>{post.location}</span>
@@ -885,13 +887,13 @@ export const PostDetail = ({ postId }: { postId: string }) => {
 
                   <div className="h-px bg-violet-200 my-8"></div>
 
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-6 text-center">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 text-center">
                     <div className="bg-violet-50 p-4 rounded-2xl">
                       <p className="text-sm text-violet-500 font-semibold">
                         Age
                       </p>
                       <p className="text-xl font-bold text-violet-800">
-                        {post.age} months
+                        {post.age} years
                       </p>
                     </div>
                     <div className="bg-violet-50 p-4 rounded-2xl">
@@ -921,13 +923,13 @@ export const PostDetail = ({ postId }: { postId: string }) => {
                   </div>
                 </div>
 
-                <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border border-violet-100 p-8">
-                  <h3 className="font-bold text-2xl text-violet-800 font-['Quicksand'] mb-6 flex items-center gap-3">
+                <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border border-violet-100 p-4 sm:p-6 lg:p-8">
+                  <h3 className="font-bold text-xl sm:text-2xl text-violet-800 font-['Quicksand'] mb-4 sm:mb-6 flex items-center gap-3">
                     <FaHeartbeat className="text-pink-500" />
                     Health & Temperament
                   </h3>
 
-                  <div className="space-y-6">
+                  <div className="space-y-4 sm:space-y-6">
                     <div className="flex items-start gap-4">
                       <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-green-100 rounded-full">
                         <FaSyringe className="text-green-500" />
@@ -996,9 +998,9 @@ export const PostDetail = ({ postId }: { postId: string }) => {
                 {isOwner && (
                   <div
                     ref={adoptionRequestsRef}
-                    className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border border-violet-100 p-8"
+                    className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border border-violet-100 p-4 sm:p-6 lg:p-8"
                   >
-                    <h3 className="font-bold text-2xl text-violet-800 font-['Quicksand'] mb-6">
+                    <h3 className="font-bold text-xl sm:text-2xl text-violet-800 font-['Quicksand'] mb-4 sm:mb-6">
                       Adoption Requests
                     </h3>
                     {post.user_id && (

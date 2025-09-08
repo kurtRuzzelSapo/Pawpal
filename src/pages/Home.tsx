@@ -148,7 +148,7 @@ const Home = () => {
             ${
               isSidebarOpen ? "translate-x-0" : "translate-x-full"
             } lg:translate-x-0
-            fixed top-0 right-0 h-full w-72 max-w-[85vw] bg-white/90 backdrop-blur-xl shadow-2xl z-50 p-6 transition-transform duration-300 ease-in-out
+            fixed top-0 right-0 h-full w-72 max-w-[85vw] bg-white/10 backdrop-blur-sm shadow-2xl z-30 p-6 transition-transform duration-300 ease-in-out
             lg:sticky lg:h-auto lg:shadow-md lg:rounded-2xl lg:top-24 lg:self-start
           `}
         >
@@ -253,7 +253,7 @@ const Home = () => {
             {/* Filter by Age */}
             <div>
               <label className="block text-sm font-medium text-violet-700 mb-2">
-                Age (months)
+                Age (years)
               </label>
               <div className="flex gap-2">
                 <input
@@ -297,8 +297,8 @@ const Home = () => {
         </aside>
 
         {/* Main Content */}
-        <main>
-          <div className="bg-white/80 backdrop-blur-md rounded-2xl sm:rounded-3xl shadow-md p-3 sm:p-4 md:p-6 w-full">
+        <main className="relative z-20">
+          <div className="bg-white/10 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-md p-3 sm:p-4 md:p-6 w-full">
             {loading ? (
               <div className="flex justify-center items-center py-10">
                 <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-violet-500"></div>
