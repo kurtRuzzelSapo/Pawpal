@@ -3,10 +3,12 @@ import { supabase } from "../supabase-client";
 import { toast } from "react-hot-toast";
 import AdminSidebar from "../components/AdminSidebar";
 import CreateVetAccount from "../components/CreateVetAccount";
+import AdoptionManagement from "./AdoptionManagement";
 import { Routes, Route, useNavigate } from "react-router-dom";
 import { FaTimes } from "react-icons/fa";
 import { useAuth } from "../context/AuthContext";
 import { SignOutConfirmationModal } from "../components/SignOutConfirmationModal";
+import React from "react";
 
 interface Post {
   id: number;
@@ -36,6 +38,7 @@ interface User {
   created_at: string;
   email?: string;
   avatar_url?: string;
+  adoption_validation?: { [key: string]: string };
 }
 
 interface DashboardStats {
@@ -103,6 +106,7 @@ const DashboardHome = () => {
   });
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<string>("");
+  const [visitCount, setVisitCount] = useState<number | null>(null);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -115,32 +119,32 @@ const DashboardHome = () => {
           navigate("/login");
           return;
         }
-
         console.log("Checking user access for user:", session.user.id);
-
         const { data: userData, error: userError } = await supabase
           .from("users")
           .select("role")
           .eq("user_id", session.user.id)
           .single();
-
         if (userError) {
           console.error("Error fetching user data:", userError);
           toast.error("Failed to verify user access");
           navigate("/login");
           return;
         }
-
-        console.log("User data:", userData);
-
         if (!userData) {
           console.log("User data not found, redirecting to home");
           navigate("/home");
           return;
         }
-
         setUserRole(userData.role);
         fetchStats(userData.role);
+        // Increment visit count if admin
+        if (userData.role === "admin") {
+          const { data, error } = await supabase.rpc("increment_visit_count");
+          if (!error) {
+            setVisitCount(data);
+          }
+        }
       } catch (error) {
         console.error("Auth check error:", error);
         toast.error("Authentication error");
@@ -274,6 +278,12 @@ const DashboardHome = () => {
   return (
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-6">Dashboard Overview</h1>
+      {userRole === "admin" && (
+        <div className="mb-6 bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded">
+          <span className="font-semibold">Website Visits:</span>{" "}
+          <span className="text-xl font-mono text-yellow-700">{visitCount !== null ? visitCount : "..."}</span>
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {userRole === "admin" && (
           <>
@@ -366,6 +376,8 @@ const UserManagement = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
+  const [expandedUser, setExpandedUser] = useState<string | null>(null);
+  const [viewedAssessments, setViewedAssessments] = useState<Record<string, boolean>>({});
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -393,22 +405,23 @@ const UserManagement = () => {
         return;
       }
 
-      // Get user profiles for additional information
+      // Get user profiles for additional information (optional - profiles might not exist)
       const userIds = usersData.map((user) => user.user_id);
       console.log("User IDs to fetch profiles for:", userIds);
 
       const { data: profilesData, error: profilesError } = await supabase
         .from("profiles")
-        .select("id, full_name")
+        .select("id, full_name, email")
         .in("id", userIds);
 
       console.log("Raw profiles data:", profilesData);
       console.log("Profiles error:", profilesError);
 
-      if (profilesError) {
-        console.error("Error fetching profiles:", profilesError);
-        throw profilesError;
-      }
+      // Don't throw error if profiles don't exist - it's optional
+      // if (profilesError) {
+      //   console.error("Error fetching profiles:", profilesError);
+      //   throw profilesError;
+      // }
 
       // Create a map of user profiles
       const profileMap = new Map(
@@ -417,6 +430,7 @@ const UserManagement = () => {
       console.log("Profile map:", Object.fromEntries(profileMap));
 
       // Combine user data with profile data
+      // adoption_validation comes from users table, not profiles
       const combinedUsers = usersData.map((user) => {
         const profile = profileMap.get(user.user_id);
         console.log(`Processing user ${user.user_id}:`, {
@@ -425,7 +439,9 @@ const UserManagement = () => {
         });
         return {
           ...user,
-          full_name: profile?.full_name || "Unknown",
+          full_name: profile?.full_name || user.full_name || "Unknown",
+          email: profile?.email || user.email || "N/A",
+          adoption_validation: user.adoption_validation || null,
         };
       });
 
@@ -468,20 +484,36 @@ const UserManagement = () => {
     }
   };
 
-  const handleVerificationToggle = async (
-    userId: string,
-    currentVerified: boolean
-  ) => {
+  const handleAssessmentToggle = (user: User) => {
+    if (!user.adoption_validation) return;
+    setExpandedUser((prev) => (prev === user.user_id ? null : user.user_id));
+    setViewedAssessments((prev) =>
+      prev[user.user_id] ? prev : { ...prev, [user.user_id]: true }
+    );
+  };
+
+  const handleVerificationToggle = async (targetUser: User) => {
+    if (!targetUser.verified) {
+      if (!targetUser.adoption_validation) {
+        toast.error("This user has not completed the adoption assessment yet.");
+        return;
+      }
+      if (!viewedAssessments[targetUser.user_id]) {
+        toast.error("Please review the user's assessment answers before verifying.");
+        return;
+      }
+    }
+
     try {
       const { error } = await supabase
         .from("users")
-        .update({ verified: !currentVerified })
-        .eq("user_id", userId);
+        .update({ verified: !targetUser.verified })
+        .eq("user_id", targetUser.user_id);
 
       if (error) throw error;
 
       toast.success(
-        `User ${!currentVerified ? "verified" : "unverified"} successfully`
+        `User ${!targetUser.verified ? "verified" : "unverified"} successfully`
       );
       fetchUsers();
     } catch (error) {
@@ -563,65 +595,126 @@ const UserManagement = () => {
                 Joined
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Assessment
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Actions
               </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {users.map((user) => (
-              <tr key={user.user_id}>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center">
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">
-                        {user.full_name}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {user.user_id}
+              <React.Fragment key={user.user_id}>
+                <tr>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">
+                          {user.full_name}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {user.user_id}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <select
-                    value={user.role}
-                    onChange={(e) =>
-                      handleRoleChange(user.user_id, e.target.value)
-                    }
-                    className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-                  >
-                    <option value="user">User</option>
-                    <option value="vet">Veterinarian</option>
-                    <option value="admin">Administrator</option>
-                  </select>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span
-                    className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      user.verified
-                        ? "bg-green-100 text-green-800"
-                        : "bg-yellow-100 text-yellow-800"
-                    }`}
-                  >
-                    {user.verified ? "Verified" : "Unverified"}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {new Date(user.created_at).toLocaleDateString()}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <button
-                    onClick={() =>
-                      handleVerificationToggle(user.user_id, user.verified)
-                    }
-                    className={`text-${
-                      user.verified ? "yellow" : "green"
-                    }-600 hover:text-${user.verified ? "yellow" : "green"}-900`}
-                  >
-                    {user.verified ? "Unverify" : "Verify"}
-                  </button>
-                </td>
-              </tr>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <select
+                      value={user.role}
+                      onChange={(e) =>
+                        handleRoleChange(user.user_id, e.target.value)
+                      }
+                      className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                    >
+                      <option value="user">User</option>
+                      <option value="vet">Veterinarian</option>
+                      <option value="admin">Administrator</option>
+                    </select>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span
+                      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        user.verified
+                          ? "bg-green-100 text-green-800"
+                          : "bg-yellow-100 text-yellow-800"
+                      }`}
+                    >
+                      {user.verified ? "Verified" : "Unverified"}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {new Date(user.created_at).toLocaleDateString()}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    {user.adoption_validation ? (
+                      <button
+                        onClick={() => handleAssessmentToggle(user)}
+                        className="text-blue-600 hover:text-blue-900 underline"
+                      >
+                        {expandedUser === user.user_id ? "Hide" : "View"} Assessment
+                      </button>
+                    ) : (
+                      <span className="text-gray-400 text-xs">N/A</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <button
+                      disabled={
+                        !user.verified &&
+                        (!user.adoption_validation || !viewedAssessments[user.user_id])
+                      }
+                      onClick={() => handleVerificationToggle(user)}
+                      className={`text-${
+                        user.verified ? "yellow" : "green"
+                      }-600 ${
+                        !user.verified &&
+                        (!user.adoption_validation || !viewedAssessments[user.user_id])
+                          ? "opacity-50 cursor-not-allowed"
+                          : `hover:text-${user.verified ? "yellow" : "green"}-900`
+                      }`}
+                    >
+                      {user.verified ? "Unverify" : "Verify"}
+                    </button>
+                    {!user.verified &&
+                      user.adoption_validation &&
+                      !viewedAssessments[user.user_id] && (
+                        <div className="text-xs text-yellow-600 mt-1">
+                          Review assessment to enable verification
+                        </div>
+                      )}
+                  </td>
+                </tr>
+                {expandedUser === user.user_id && user.adoption_validation && (
+                  <tr>
+                    <td colSpan={6} className="bg-gray-50 px-6 py-4">
+                      <h4 className="font-semibold mb-2">Assessment Answers</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {(() => {
+                          try {
+                            // Handle both object and string JSONB
+                            const validation = typeof user.adoption_validation === 'string' 
+                              ? JSON.parse(user.adoption_validation) 
+                              : user.adoption_validation;
+                            
+                            if (!validation || typeof validation !== 'object') {
+                              return <div className="text-gray-500">No assessment data available</div>;
+                            }
+                            
+                            return Object.entries(validation).map(([question, answer]) => (
+                              <div key={question} className="py-1">
+                                <span className="font-medium text-gray-700">{question.replace(/([A-Z])/g, ' $1').replace(/^./, str=>str.toUpperCase())}:</span> {String(answer)}
+                              </div>
+                            ));
+                          } catch (error) {
+                            console.error("Error parsing assessment data:", error);
+                            return <div className="text-red-500">Error displaying assessment data</div>;
+                          }
+                        })()}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </React.Fragment>
             ))}
           </tbody>
         </table>
@@ -823,12 +916,12 @@ const PostManagement = () => {
         postUsers?.map((user) => [user.id, user.full_name]) || []
       );
 
-      // Combine posts with user data
+      // Combine posts with user data; prefer stored `owner_name` on post
       const postsWithUsers =
         postsData?.map((post) => ({
           ...post,
           ownerName:
-            userMap.get(post.user_id || post.auth_users_id) || "Unknown",
+            post.owner_name || userMap.get(post.user_id || post.auth_users_id) || "Unknown",
         })) || [];
 
       setPosts(postsWithUsers);
@@ -1208,6 +1301,14 @@ const AdminDashboard = () => {
               </>
             )}
             <Route path="/posts" element={<PostManagement />} />
+            <Route path="/adoptions" element={
+              (userRole === "admin" || userRole === "vet") ? (
+                // lazy load page via import to avoid circular imports
+                <AdoptionManagement />
+              ) : (
+                <PostManagement />
+              )
+            } />
           </Routes>
         </div>
       </div>

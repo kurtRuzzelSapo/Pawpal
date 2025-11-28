@@ -27,6 +27,10 @@ export interface Post {
   community_id?: number;
   comments?: { id: number }[];
   likes?: { id: number }[];
+  owner_name?: string;
+  owner_avatar?: string;
+  owner_first_name?: string | null;
+  owner_last_name?: string | null;
 }
 
 interface PostListProps {
@@ -41,7 +45,74 @@ export const PostList: React.FC<PostListProps> = ({ posts: initialPosts }) => {
     if (!initialPosts) {
       fetchPosts();
     } else {
-      setPosts(initialPosts);
+      // If posts are passed in from parent, enrich them with owner info before setting
+      const enrich = async () => {
+        try {
+          const postsData = initialPosts as any[];
+          const userIds = Array.from(new Set(postsData.map((p: any) => p.user_id || p.auth_users_id).filter(Boolean)));
+          let usersMap: Record<string, any> = {};
+          if (userIds.length > 0) {
+            try {
+              // Prefer `profiles` table
+              const { data: profilesData, error: profilesError } = await supabase
+                .from("profiles")
+                .select("id, full_name, avatar_url")
+                .in("id", userIds as any);
+              if (profilesError) throw profilesError;
+              if (profilesData && profilesData.length > 0) {
+                usersMap = profilesData.reduce((acc: Record<string, any>, u: any) => {
+                  acc[u.id] = u;
+                  return acc;
+                }, {} as Record<string, any>);
+              } else {
+                // Fallback: call RPC per id (get_user_name)
+                await Promise.all(
+                  userIds.map(async (uid: string) => {
+                    try {
+                      const { data: nameData, error: nameError } = await supabase.rpc("get_user_name", { user_id: uid });
+                      if (!nameError && nameData) {
+                        usersMap[uid] = { id: uid, full_name: Array.isArray(nameData) ? nameData[0] : nameData };
+                      }
+                    } catch (err) {
+                      console.warn("RPC get_user_name failed for", uid, err);
+                    }
+                  })
+                );
+              }
+            } catch (err) {
+              console.warn("Failed to fetch profiles for posts enrichment:", err);
+            }
+          }
+
+          const enriched = postsData.map((post: any) => {
+            const uid = post.user_id || post.auth_users_id || post.user?.id;
+            const owner = (uid && usersMap[uid]) || null;
+            // Prefer owner_name from post (newly saved), fallback to fetched owner full_name
+            const fullName = post.owner_name || owner?.full_name || owner?.fullName || null;
+            let firstName = null as string | null;
+            let lastName = null as string | null;
+            if (fullName) {
+              const parts = String(fullName).trim().split(/\s+/);
+              firstName = parts.shift() || null;
+              lastName = parts.length > 0 ? parts.join(" ") : null;
+            }
+            return {
+              ...post,
+              like_count: post.like_count ?? 0,
+              comment_count: post.comment_count ?? 0,
+              owner_name: fullName,
+              owner_first_name: firstName,
+              owner_last_name: lastName,
+              owner_avatar: owner?.avatar_url || owner?.avatar || post.avatar_url || null,
+            } as any;
+          });
+          setPosts(enriched);
+        } catch (error) {
+          console.error("Error enriching initial posts:", error);
+          setPosts(initialPosts);
+        }
+      };
+      enrich();
     }
   }, [initialPosts]);
 
@@ -63,12 +134,66 @@ export const PostList: React.FC<PostListProps> = ({ posts: initialPosts }) => {
         return;
       }
 
+      // Fetch owner profiles for the posts (by user_id)
+      const userIds = Array.from(new Set(postsData.map((p: any) => p.user_id || p.auth_users_id).filter(Boolean)));
+      let usersMap: Record<string, any> = {};
+      if (userIds.length > 0) {
+        try {
+          const { data: profilesData, error: profilesError } = await supabase
+            .from("profiles")
+            .select("id, full_name, avatar_url")
+            .in("id", userIds as any);
+          if (profilesError) {
+            console.warn("Error fetching profiles:", profilesError);
+          }
+          if (profilesData && profilesData.length > 0) {
+            usersMap = profilesData.reduce((acc: Record<string, any>, u: any) => {
+              acc[u.id] = u;
+              return acc;
+            }, {} as Record<string, any>);
+          } else {
+            // Fallback to RPC per id
+            await Promise.all(
+              userIds.map(async (uid: string) => {
+                try {
+                  const { data: nameData, error: nameError } = await supabase.rpc("get_user_name", { user_id: uid });
+                  if (!nameError && nameData) {
+                    usersMap[uid] = { id: uid, full_name: Array.isArray(nameData) ? nameData[0] : nameData };
+                  }
+                } catch (err) {
+                  console.warn("RPC get_user_name failed for", uid, err);
+                }
+              })
+            );
+          }
+        } catch (err) {
+          console.error("Unexpected error fetching profiles:", err);
+        }
+      }
+
       // Transform the data to include counts
-      const enrichedPosts = postsData.map((post) => ({
-        ...post,
-        like_count: 0,
-        comment_count: 0,
-      }));
+      const enrichedPosts = postsData.map((post: any) => {
+        const uid = post.user_id || post.auth_users_id || post.user?.id;
+        const owner = (uid && usersMap[uid]) || null;
+        // Prefer owner_name from post (persisted at creation), then profiles.full_name, then RPC fallback
+        const fullName = post.owner_name || owner?.full_name || owner?.fullName || null;
+        let firstName = null as string | null;
+        let lastName = null as string | null;
+        if (fullName) {
+          const parts = String(fullName).trim().split(/\s+/);
+          firstName = parts.shift() || null;
+          lastName = parts.length > 0 ? parts.join(" ") : null;
+        }
+        return {
+          ...post,
+          like_count: 0,
+          comment_count: 0,
+          owner_name: fullName,
+          owner_first_name: firstName,
+          owner_last_name: lastName,
+          owner_avatar: owner?.avatar_url || owner?.avatar || post.avatar_url || null,
+        } as any;
+      });
 
       console.log("Enriched posts:", enrichedPosts);
       setPosts(enrichedPosts);
@@ -133,15 +258,28 @@ export const PostList: React.FC<PostListProps> = ({ posts: initialPosts }) => {
                   <div className="p-4 flex-1 flex flex-col">
                     {/* Name and Breed */}
                     <div>
-                      <h3 className="text-xl font-bold text-gray-800 font-['Quicksand'] truncate">
-                        {post.name || "Unnamed Pet"}
-                      </h3>
-                      {post.breed && (
-                        <p className="text-sm text-gray-500 font-['Poppins'] flex items-center truncate">
-                          <MdPets className="mr-2 flex-shrink-0 text-gray-400" />
-                          {post.pet_type ? `${post.pet_type} • ${post.breed}` : post.breed}
-                        </p>
-                      )}
+                        <h3 className="text-xl font-bold text-gray-800 font-['Quicksand'] truncate">
+                          {post.name || "Unnamed Pet"}
+                        </h3>
+
+                        {/* Owner name: prefer split first/last, fallback to owner_name */}
+                        {(post.owner_first_name || post.owner_name) && (
+                          <p className="text-sm text-violet-600 font-['Poppins'] flex items-center truncate">
+                            <span className="text-xs text-gray-500">Posted by</span>
+                            <span className="ml-2 font-medium text-violet-700">
+                              {post.owner_first_name
+                                ? `${post.owner_first_name}${post.owner_last_name ? ' ' + post.owner_last_name : ''}`
+                                : post.owner_name}
+                            </span>
+                          </p>
+                        )}
+
+                        {(!post.owner_first_name && !post.owner_name) && post.breed && (
+                          <p className="text-sm text-gray-500 font-['Poppins'] flex items-center truncate">
+                            <MdPets className="mr-2 flex-shrink-0 text-gray-400" />
+                            {post.pet_type ? `${post.pet_type} • ${post.breed}` : post.breed}
+                          </p>
+                        )}
                     </div>
 
                     {/* Quick Facts Bar */}

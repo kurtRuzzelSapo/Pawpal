@@ -7,17 +7,30 @@ interface AuthResponse {
   error?: string;
 }
 
+interface AdoptionValidation {
+  hasExperience?: string;
+  stableLiving?: string;
+  canAfford?: string;
+  hasTime?: string;
+  householdOnBoard?: string;
+  hasSpace?: string;
+  longTermCommitment?: string;
+}
+
 interface AuthContextType {
   user: User | null;
   role: string | null;
   signUpWithEmail: (
     email: string,
     password: string,
-    role?: string
+    role?: string,
+    first_name?: string,
+    last_name?: string,
+    adoptionValidation?: AdoptionValidation
   ) => Promise<AuthResponse>;
   signInWithEmail: (email: string, password: string) => Promise<AuthResponse>;
   signOut: () => Promise<void>;
-  signInWithGoogle: () => Promise<void>; // <-- Add this line!
+  resendVerificationEmail: (email: string) => Promise<AuthResponse>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -66,6 +79,98 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [user]);
 
+  useEffect(() => {
+    const insertUserIfNeeded = async () => {
+      if (!user) return;
+      
+      console.log("User session detected, attempting to upsert user profile:", user.id);
+      
+      // Get adoptionValidation from localStorage (only for newly verified accounts)
+      let adoptionValidation = null;
+      const cached = localStorage.getItem("pendingAdoptionValidation");
+      if (cached) {
+        try { 
+          const parsed = JSON.parse(cached);
+          // Validate that it's an object with at least one property
+          if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+            // Filter out empty values
+            adoptionValidation = Object.fromEntries(
+              Object.entries(parsed).filter(([_, value]) => value && (typeof value === 'string' ? value.trim() !== '' : value !== null && value !== undefined))
+            );
+            if (Object.keys(adoptionValidation).length === 0) {
+              adoptionValidation = null;
+            }
+            console.log("Found and validated cached adoption validation:", adoptionValidation);
+          } else {
+            console.warn("Cached adoption validation is empty or invalid");
+          }
+        } catch (e) {
+          console.error("Failed to parse cached adoption validation:", e);
+        }
+      }
+      
+      // Check if user already exists
+      const { data: existingUser, error: checkError } = await supabase
+        .from("users")
+        .select("user_id, adoption_validation")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      
+      if (checkError) {
+        console.error("Error checking existing user:", checkError);
+      }
+      
+      // Prepare user data - prioritize cached adoption validation if it exists
+      // Only use existing adoption_validation if there's no cached one (to avoid overwriting with null)
+      const finalAdoptionValidation = adoptionValidation || existingUser?.adoption_validation || null;
+      
+      console.log("Final adoption validation for upsert:", finalAdoptionValidation);
+      
+      const userData = {
+        user_id: user.id,
+        email: user.email || "",
+        full_name: user.user_metadata?.full_name || user.email?.split("@")[0] || "Unknown",
+        role: user.user_metadata?.role || "user",
+        adoption_validation: finalAdoptionValidation,
+        created_at: new Date().toISOString(),
+      };
+      
+      console.log("Upserting user data:", userData);
+      
+      // Upsert user profile regardless of admin/vet verification status
+      const { data: upsertData, error: upsertError } = await supabase
+        .from("users")
+        .upsert([userData], { onConflict: 'user_id' })
+        .select();
+      
+      if (upsertError) {
+        console.error('AuthProvider auto upsert error:', upsertError);
+        console.error('Upsert error details:', JSON.stringify(upsertError, null, 2));
+        // Try insert instead of upsert in case of conflict issues
+        const { error: insertError, data: insertData } = await supabase
+          .from("users")
+          .insert([userData])
+          .select();
+        if (insertError) {
+          console.error('Insert fallback also failed:', insertError);
+        } else {
+          console.log('Insert fallback succeeded:', insertData);
+          // Clear cached adoption validation after successful insert
+          if (cached) {
+            localStorage.removeItem("pendingAdoptionValidation");
+          }
+        }
+      } else {
+        console.log('Upsert succeeded:', upsertData);
+        // Clear cached adoption validation after successful upsert
+        if (cached) {
+          localStorage.removeItem("pendingAdoptionValidation");
+        }
+      }
+    };
+    insertUserIfNeeded();
+  }, [user]);
+
   const checkUser = async () => {
     try {
       const {
@@ -81,54 +186,154 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signUpWithEmail = async (
     email: string,
     password: string,
-    role: string = "user"
+    role: string = "user",
+    first_name?: string,
+    last_name?: string,
+    adoptionValidation?: AdoptionValidation
   ): Promise<AuthResponse> => {
     try {
-      // Step 1: Sign up
-      const { error: authError } = await supabase.auth.signUp({
-        email,
+      const fullName = first_name && last_name 
+        ? `${first_name} ${last_name}` 
+        : email.split("@")[0];
+
+      // Save adoption validation to localStorage BEFORE signup
+      // Ensure it's a valid object before saving
+      if (adoptionValidation && typeof adoptionValidation === 'object') {
+        // Filter out empty values to keep only answered questions
+        const filteredValidation = Object.fromEntries(
+          Object.entries(adoptionValidation).filter(([_, value]) => value && value.trim && value.trim() !== '')
+        );
+        
+        if (Object.keys(filteredValidation).length > 0) {
+          localStorage.setItem("pendingAdoptionValidation", JSON.stringify(filteredValidation));
+          console.log("Saved adoption validation to localStorage:", filteredValidation);
+        } else {
+          console.warn("Adoption validation object is empty, not saving to localStorage");
+        }
+      }
+
+      // Step 1: Sign up with Supabase
+      const redirectUrl = `${window.location.origin}/verify-email`;
+      console.log("Signing up user with email:", email.toLowerCase().trim());
+      console.log("Email redirect URL:", redirectUrl);
+      
+      const { data: signUpData, error: authError } = await supabase.auth.signUp({
+        email: email.toLowerCase().trim(),
         password,
         options: {
           data: {
-            email,
-            full_name: email.split("@")[0],
+            email: email.toLowerCase().trim(),
+            full_name: fullName,
+            first_name,
+            last_name,
+            role,
+            adoption_validation: adoptionValidation || null,
           },
+          emailRedirectTo: redirectUrl,
         },
       });
 
+      console.log("Signup response:", { 
+        user: signUpData?.user?.id, 
+        session: !!signUpData?.session,
+        error: authError?.message 
+      });
+
+      // If signup fails due to existing email
       if (authError) {
+        console.error("Signup error:", authError);
+        if (
+          authError.message.includes("already registered") ||
+          authError.message.includes("already exists") ||
+          authError.message.includes("User already registered")
+        ) {
+          return {
+            success: false,
+            error: "This email is already registered. Please use the login page to sign in.",
+          };
+        }
         return { success: false, error: authError.message };
       }
 
-      // Step 2: Sign in (to get a session)
-      const { data: signInData, error: signInError } =
-        await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-
-      if (signInError) {
-        return { success: false, error: signInError.message };
+      // If user was created, try to insert into users table immediately
+      // This might fail due to RLS, but we'll retry after email verification
+      if (signUpData?.user?.id) {
+        console.log("Attempting to insert user into users table:", signUpData.user.id);
+        
+        // Prepare adoption validation - filter out empty values
+        let finalAdoptionValidation = null;
+        if (adoptionValidation && typeof adoptionValidation === 'object') {
+          finalAdoptionValidation = Object.fromEntries(
+            Object.entries(adoptionValidation).filter(([_, value]) => value && value.trim && value.trim() !== '')
+          );
+          if (Object.keys(finalAdoptionValidation).length === 0) {
+            finalAdoptionValidation = null;
+          }
+        }
+        
+        console.log("Adoption validation being saved:", finalAdoptionValidation);
+        
+        const { error: insertError, data: insertData } = await supabase
+          .from("users")
+          .insert([
+            {
+              user_id: signUpData.user.id,
+              email: email.toLowerCase().trim(),
+              full_name: fullName,
+              role,
+              adoption_validation: finalAdoptionValidation,
+              created_at: new Date().toISOString()
+            }
+          ])
+          .select();
+        
+        if (insertError) {
+          console.error("Failed to insert user profile on sign up (this is OK, will retry after verification):", insertError);
+          console.error("Insert error details:", JSON.stringify(insertError, null, 2));
+          // Keep adoption validation in localStorage for retry after email verification
+        } else {
+          console.log("Successfully inserted user profile:", insertData);
+          // Clear localStorage since we successfully saved it
+          if (finalAdoptionValidation) {
+            localStorage.removeItem("pendingAdoptionValidation");
+          }
+        }
       }
 
-      // Step 3: Insert profile (now authenticated)
-      const { error: profileError } = await supabase
-        .from("users")
-        .insert([
-          {
-            user_id: signInData.user.id,
-            role: role,
-          },
-        ])
-        .select()
-        .single();
-
-      if (profileError) {
+      // If user was created but no session (email confirmation required)
+      if (signUpData.user && !signUpData.session) {
         return {
-          success: false,
-          error:
-            "Failed to create user profile. Please try signing in, or contact support if the issue persists.",
+          success: true,
+          error: "Please check your email to verify your account before signing in.",
         };
+      }
+
+      // If we have a session (email confirmation not required), user will be inserted by useEffect
+      return { success: true };
+    } catch (error) {
+      console.error("Signup error:", error);
+      return {
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "An unexpected error occurred",
+      };
+    }
+  };
+
+  const resendVerificationEmail = async (email: string): Promise<AuthResponse> => {
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: email.toLowerCase().trim(),
+        options: {
+          emailRedirectTo: `${window.location.origin}/verify-email`,
+        },
+      });
+
+      if (error) {
+        return { success: false, error: error.message };
       }
 
       return { success: true };
@@ -138,7 +343,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         error:
           error instanceof Error
             ? error.message
-            : "An unexpected error occurred",
+            : "Failed to resend verification email",
       };
     }
   };
@@ -169,23 +374,71 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         };
       }
 
-      // Get user role from users table
+      // Check if email is confirmed first
+      if (!data.user.email_confirmed_at) {
+        await supabase.auth.signOut();
+        return {
+          success: false,
+          error: "Please verify your email address before signing in. Check your inbox for the verification link.",
+        };
+      }
+
+      // Get user role and verification from users table
       const { data: userData, error: userError } = await supabase
         .from("users")
-        .select("role")
+        .select("role, verified")
         .eq("user_id", data.user.id)
         .single();
 
-      if (userError) {
+      if (userError || !userData) {
         console.error("Error fetching user role:", userError);
+        await supabase.auth.signOut();
         return {
           success: false,
-          error: "Error fetching user role",
+          error: "Error fetching user account. Please contact support.",
         };
+      }
+
+      // For regular users: Block login if account is not verified by admin/vet
+      // Vets and admins can always log in (they don't need approval)
+      if (userData.role === "user") {
+        // Check if verified field exists and is true
+        if (userData.verified !== true) {
+          await supabase.auth.signOut();
+          return {
+            success: false,
+            error: "Your account is awaiting vet/admin approval. You cannot log in until your account has been verified. We'll notify you once it's approved.",
+          };
+        }
       }
 
       // Store role in localStorage
       localStorage.setItem("userRole", userData.role || "user");
+
+      // Try adoptionValidation from localStorage (may be null for returning users)
+      let adoptionValidation = null;
+      const cached = localStorage.getItem("pendingAdoptionValidation");
+      if (cached) {
+        try {
+          adoptionValidation = JSON.parse(cached);
+        } catch {}
+        localStorage.removeItem("pendingAdoptionValidation"); // Clean up after inserting
+      }
+      const { error: upsertError } = await supabase
+        .from("users")
+        .upsert([
+          {
+            user_id: data.user.id,
+            email: data.user.email,
+            role: userData?.role || "user",
+            full_name: data.user.user_metadata?.full_name || data.user.email?.split("@")[0] || "Unknown",
+            adoption_validation: adoptionValidation,
+            created_at: new Date().toISOString(),
+          }
+        ], { onConflict: 'user_id' });
+      if (upsertError) {
+        console.error('Upsert error:', upsertError);
+      }
 
       console.log("Sign in successful");
       return {
@@ -228,16 +481,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  const signInWithGoogle = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: window.location.origin,
-      },
-    });
-    if (error) throw error;
-  };
-
   return (
     <AuthContext.Provider
       value={{
@@ -246,7 +489,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         signUpWithEmail,
         signInWithEmail,
         signOut,
-        signInWithGoogle, // <-- Add this line!
+        resendVerificationEmail,
       }}
     >
       {children}

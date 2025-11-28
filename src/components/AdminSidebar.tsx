@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { FaHome, FaUsers, FaUserMd, FaNewspaper } from "react-icons/fa";
+import { FaHome, FaUsers, FaUserMd, FaNewspaper, FaPaw } from "react-icons/fa";
 
 interface AdminSidebarProps {
   userRole: string;
@@ -59,6 +59,17 @@ const AdminSidebar = ({ userRole }: AdminSidebarProps) => {
         >
           <FaNewspaper className="mr-3" />
           Post Management
+        </NavLink>
+        <NavLink
+          to="/admin-dashboard/adoptions"
+          className={({ isActive }) =>
+            `flex items-center px-6 py-3 text-gray-700 hover:bg-violet-50 hover:text-violet-600 ${
+              isActive ? "bg-violet-50 text-violet-600" : ""
+            }`
+          }
+        >
+          <FaPaw className="mr-3" />
+          Adoption Management
         </NavLink>
       </nav>
     </div>

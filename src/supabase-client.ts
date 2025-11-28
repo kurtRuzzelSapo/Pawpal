@@ -1,26 +1,11 @@
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseURL = "https://xnskynghatlhxplxcmal.supabase.co";
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const supabaseServiceKey = import.meta.env.VITE_SUPABASE_SERVICE_KEY;
+// Hardcoded as per user instruction. DO NOT expose service keys in frontend code!
+const supabaseUrl = "https://xnskynghatlhxplxcmal.supabase.co";
+// This is the ANON/public key
+const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhuc2t5bmdoYXRsaHhwbHhjbWFsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI3MTQzNzgsImV4cCI6MjA1ODI5MDM3OH0.HCVQ7gJMoIIdRTEgPFkAkTgWb3_R-5DdnKASgyVA474";
 
-// Debug logging
-console.log("Supabase URL:", supabaseURL);
-console.log("Anon Key exists:", !!supabaseAnonKey);
-console.log("Service Key exists:", !!supabaseServiceKey);
+if (!supabaseUrl) throw new Error("Missing SUPABASE URL");
+if (!supabaseAnonKey) throw new Error("Missing SUPABASE ANON KEY");
 
-if (!supabaseAnonKey) {
-  throw new Error("Missing VITE_SUPABASE_ANON_KEY environment variable");
-}
-
-if (!supabaseServiceKey) {
-  throw new Error("Missing VITE_SUPABASE_SERVICE_KEY environment variable");
-}
-
-export const supabase = createClient(supabaseURL, supabaseAnonKey);
-export const supabaseAdmin = createClient(supabaseURL, supabaseServiceKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-  },
-});
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
