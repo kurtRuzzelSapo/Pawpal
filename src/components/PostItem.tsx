@@ -64,12 +64,25 @@ export const PostItem = ({ post }: Props) => {
                 <div className="text-xl leading-snug font-bold text-violet-800 font-['Quicksand']">
                   {post.name}
                 </div>
-                {post.breed && (
-                  <div className="text-sm text-violet-600 font-['Poppins'] flex items-center">
-                    <MdPets className="mr-1 text-violet-400" />
-                    {post.breed}
-                  </div>
-                )}
+                <div className="text-sm text-violet-600 font-['Poppins'] flex items-center">
+                  {post.owner_first_name || post.owner_name ? (
+                    <>
+                      <span className="text-xs text-gray-500">Posted by</span>
+                      <span className="ml-2 font-medium text-violet-700">
+                        {post.owner_first_name
+                          ? `${post.owner_first_name}${post.owner_last_name ? ' ' + post.owner_last_name : ''}`
+                          : post.owner_name}
+                      </span>
+                    </>
+                  ) : (
+                    post.breed && (
+                      <>
+                        <MdPets className="mr-1 text-violet-400" />
+                        {post.breed}
+                      </>
+                    )
+                  )}
+                </div>
               </div>
             </div>
           </div>

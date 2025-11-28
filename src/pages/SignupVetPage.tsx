@@ -34,16 +34,24 @@ const SignupVetPage = () => {
     try {
       const { success, error } = await signUpWithEmail(email, password, "vet");
 
-      if (!success && error) {
-        setError(error);
-      } else {
-        // Show success message before redirecting
-        navigate("/verify-email", { 
-          state: { 
+      if (
+        success ||
+        (error && error.toLowerCase().includes("verify your email")) ||
+        (error && error.toLowerCase().includes("email not confirmed"))
+      ) {
+        navigate("/verify-email", {
+          state: {
             email,
-            message: "Please check your email to verify your account. After verification, we'll review your credentials and activate your veterinarian account." 
-          } 
+            message: "Please check your email to verify your account. After verification, we'll review your credentials and activate your veterinarian account."
+          }
         });
+      } else if (error && (error.includes("already exists") || error.includes("already registered"))) {
+        setError(error);
+        setTimeout(() => {
+          navigate("/login");
+        }, 3000);
+      } else {
+        setError(error || "Sign up failed. Try again.");
       }
     } catch (error: unknown) {
       if (error instanceof Error) {

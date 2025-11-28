@@ -562,6 +562,52 @@ export const PostDetail = ({ postId }: { postId: string }) => {
     queryFn: () => fetchPostById(numericPostId),
   });
 
+  const [ownerFirstName, setOwnerFirstName] = useState<string | null>(null);
+  const [ownerLastName, setOwnerLastName] = useState<string | null>(null);
+  const [ownerFullName, setOwnerFullName] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchOwner = async () => {
+      if (!post?.user_id) return;
+      // If owner_name is already stored on post, use that
+      if (post.owner_name) {
+        const fullName = post.owner_name;
+        const parts = String(fullName).trim().split(/\s+/);
+        const f = parts.shift() || null;
+        const l = parts.length > 0 ? parts.join(" ") : null;
+        setOwnerFirstName(f);
+        setOwnerLastName(l);
+        setOwnerFullName(fullName);
+        return;
+      }
+      try {
+        const { data: userData, error } = await supabase
+          .from("users")
+          .select("full_name, avatar_url, user_id")
+          .eq("user_id", post.user_id)
+          .maybeSingle();
+
+        if (error) {
+          console.warn("Error fetching owner by user_id:", error);
+        }
+
+        if (userData?.full_name) {
+          const fullName = userData.full_name;
+          const parts = String(fullName).trim().split(/\s+/);
+          const f = parts.shift() || null;
+          const l = parts.length > 0 ? parts.join(" ") : null;
+          setOwnerFirstName(f);
+          setOwnerLastName(l);
+          setOwnerFullName(fullName);
+        }
+      } catch (err) {
+        console.error("Unexpected error fetching owner info:", err);
+      }
+    };
+
+    fetchOwner();
+  }, [post?.user_id, post?.owner_name]);
+
   // Scroll to adoption requests if hash is present in URL
   useEffect(() => {
     if (location.hash === "#adoption-requests" && adoptionRequestsRef.current) {
@@ -859,6 +905,15 @@ export const PostDetail = ({ postId }: { postId: string }) => {
                   <h1 className="text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-bold bg-gradient-to-r from-violet-600 via-purple-600 to-pink-600 text-transparent bg-clip-text font-['Quicksand'] mb-2">
                     {post.name}
                   </h1>
+                  {/* Owner name under pet title */}
+                  {(ownerFirstName || ownerFullName) && (
+                    <div className="text-sm text-violet-600 font-['Poppins'] mb-3">
+                      <span className="text-xs text-gray-500">Posted by</span>
+                      <span className="ml-2 font-medium text-violet-700">
+                        {ownerFirstName ? `${ownerFirstName}${ownerLastName ? ' ' + ownerLastName : ''}` : ownerFullName}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-gray-500 mb-4 sm:mb-6">
                     <div className="flex items-center gap-2">
                       <FaMapMarkerAlt />

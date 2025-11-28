@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { supabase } from "../supabase-client";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "react-hot-toast";
@@ -26,6 +26,16 @@ interface Post {
   vet_id?: string;
 }
 
+interface User {
+  user_id: string;
+  full_name: string;
+  email: string;
+  role: string;
+  verified: boolean;
+  created_at: string;
+  adoption_validation?: { [key: string]: string };
+}
+
 const VetSidebar = ({ activeSection }: { activeSection: string }) => {
   return (
     <aside className="fixed top-16 left-0 w-64 h-[calc(100vh-4rem)] bg-white shadow-lg z-40 flex flex-col pt-8">
@@ -33,6 +43,16 @@ const VetSidebar = ({ activeSection }: { activeSection: string }) => {
         <span className="text-violet-700 font-semibold text-lg mb-4">
           Vet Menu
         </span>
+        <a
+          href="#pending-users"
+          className={`px-3 py-2 rounded-lg font-medium transition-colors ${
+            activeSection === "pending-users"
+              ? "bg-violet-200 text-violet-900"
+              : "hover:bg-violet-50 text-violet-800"
+          }`}
+        >
+          Pending Users
+        </a>
         <a
           href="#pending"
           className={`px-3 py-2 rounded-lg font-medium transition-colors ${
@@ -104,16 +124,21 @@ export default function VetDashboard() {
   const { user, role } = useAuth();
   const [pendingPosts, setPendingPosts] = useState<Post[]>([]);
   const [history, setHistory] = useState<Post[]>([]);
+  const [pendingUsers, setPendingUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [note, setNote] = useState<{ [key: number]: string }>({});
-  const [activeSection, setActiveSection] = useState("pending");
+  const [activeSection, setActiveSection] = useState("pending-users");
+  const pendingUsersRef = useRef<HTMLDivElement>(null);
   const pendingRef = useRef<HTMLDivElement>(null);
   const historyRef = useRef<HTMLDivElement>(null);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [expandedUser, setExpandedUser] = useState<string | null>(null);
+  const [viewedAssessments, setViewedAssessments] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (role !== "vet") return;
+    fetchPendingUsers();
     fetchPendingPosts();
     fetchHistory();
     // eslint-disable-next-line
@@ -122,9 +147,12 @@ export default function VetDashboard() {
   // Scroll section highlight logic
   useEffect(() => {
     const handleScroll = () => {
+      const pendingUsersTop = pendingUsersRef.current?.getBoundingClientRect().top ?? 0;
       const pendingTop = pendingRef.current?.getBoundingClientRect().top ?? 0;
       const historyTop = historyRef.current?.getBoundingClientRect().top ?? 0;
-      if (pendingTop <= 100 && historyTop > 200) {
+      if (pendingUsersTop <= 100 && pendingTop > 200) {
+        setActiveSection("pending-users");
+      } else if (pendingTop <= 100 && historyTop > 200) {
         setActiveSection("pending");
       } else if (historyTop <= 100) {
         setActiveSection("history");
@@ -136,6 +164,95 @@ export default function VetDashboard() {
 
   const getVetId = (user: { user_id?: string; id?: string }) =>
     user?.user_id || user?.id;
+
+  const fetchPendingUsers = async () => {
+    setLoading(true);
+    try {
+      // Fetch all users with role 'user' that are not verified
+      const { data: usersData, error: usersError } = await supabase
+        .from("users")
+        .select("*")
+        .eq("role", "user")
+        .eq("verified", false)
+        .order("created_at", { ascending: false });
+
+      if (usersError) {
+        console.error("Error fetching pending users:", usersError);
+        toast.error("Failed to fetch pending users");
+        return;
+      }
+
+      if (!usersData || usersData.length === 0) {
+        setPendingUsers([]);
+        setLoading(false);
+        return;
+      }
+
+      // Get user profiles for additional information
+      const userIds = usersData.map((user) => user.user_id);
+      const { data: profilesData } = await supabase
+        .from("profiles")
+        .select("id, full_name, email")
+        .in("id", userIds);
+
+      // Create a map of user profiles
+      const profileMap = new Map(
+        profilesData?.map((profile) => [profile.id, profile]) || []
+      );
+
+      // Combine user data with profile data
+      const combinedUsers = usersData.map((user) => {
+        const profile = profileMap.get(user.user_id);
+        return {
+          ...user,
+          full_name: profile?.full_name || user.full_name || "Unknown",
+          email: profile?.email || user.email || "N/A",
+          adoption_validation: user.adoption_validation || null,
+        };
+      });
+
+      setPendingUsers(combinedUsers);
+    } catch (error) {
+      console.error("Error in fetchPendingUsers:", error);
+      toast.error("Failed to fetch pending users");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyUser = async (userId: string) => {
+    const targetUser = pendingUsers.find((pendingUser) => pendingUser.user_id === userId);
+
+    if (!targetUser) {
+      toast.error("Unable to find the user to verify.");
+      return;
+    }
+
+    if (!targetUser.adoption_validation) {
+      toast.error("This user has not completed the adoption assessment yet.");
+      return;
+    }
+
+    if (!viewedAssessments[userId]) {
+      toast.error("Please review the user's assessment answers before verifying.");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("users")
+        .update({ verified: true })
+        .eq("user_id", userId);
+
+      if (error) throw error;
+
+      toast.success("User verified successfully!");
+      fetchPendingUsers();
+    } catch (error) {
+      console.error("Error verifying user:", error);
+      toast.error("Failed to verify user");
+    }
+  };
 
   const fetchPendingPosts = async () => {
     setLoading(true);
@@ -399,6 +516,14 @@ export default function VetDashboard() {
     );
   };
 
+  const handleAssessmentToggle = (userId: string, hasAssessment: boolean) => {
+    if (!hasAssessment) return;
+    setExpandedUser((prev) => (prev === userId ? null : userId));
+    setViewedAssessments((prev) =>
+      prev[userId] ? prev : { ...prev, [userId]: true }
+    );
+  };
+
   if (role !== "vet")
     return <div className="p-8 text-center text-red-500">Access denied.</div>;
 
@@ -408,6 +533,147 @@ export default function VetDashboard() {
       <div className="flex min-h-screen bg-gray-50 pt-16">
         <VetSidebar activeSection={activeSection} />
         <main className="flex-1 ml-64 p-8">
+          {/* Pending Users Section */}
+          <div
+            ref={pendingUsersRef}
+            id="pending-users"
+            className="bg-white rounded-lg shadow-md p-8 mb-8 w-full"
+          >
+            <h1 className="text-2xl font-bold mb-6 text-violet-800">
+              Pending User Approvals
+            </h1>
+            {loading ? (
+              <div className="flex items-center justify-center h-32">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-violet-600"></div>
+              </div>
+            ) : pendingUsers.length === 0 ? (
+              <div className="text-gray-500">No pending user approvals.</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        User
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Email
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Joined
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Assessment
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {pendingUsers.map((user) => (
+                      <React.Fragment key={user.user_id}>
+                        <tr>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">
+                              {user.full_name || "Unknown"}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-500">
+                              {user.email || "N/A"}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {new Date(user.created_at).toLocaleDateString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            {user.adoption_validation ? (
+                              <button
+                                onClick={() =>
+                                  handleAssessmentToggle(
+                                    user.user_id,
+                                    !!user.adoption_validation
+                                  )
+                                }
+                                className="text-blue-600 hover:text-blue-900 underline"
+                              >
+                                {expandedUser === user.user_id ? "Hide" : "View"} Assessment
+                              </button>
+                            ) : (
+                              <span className="text-gray-400 text-xs">N/A</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            {!user.adoption_validation && (
+                              <div className="text-xs text-gray-400 mb-1">
+                                Awaiting assessment
+                              </div>
+                            )}
+                            <button
+                              disabled={
+                                !user.adoption_validation ||
+                                !viewedAssessments[user.user_id]
+                              }
+                              onClick={() => handleVerifyUser(user.user_id)}
+                              className={`bg-green-500 text-white px-4 py-2 rounded transition-colors ${
+                                !user.adoption_validation || !viewedAssessments[user.user_id]
+                                  ? "opacity-50 cursor-not-allowed"
+                                  : "hover:bg-green-600"
+                              }`}
+                            >
+                              Verify Account
+                            </button>
+                            {!viewedAssessments[user.user_id] &&
+                              user.adoption_validation && (
+                                <div className="text-xs text-yellow-600 mt-1">
+                                  Review assessment to enable verification
+                                </div>
+                              )}
+                          </td>
+                        </tr>
+                        {expandedUser === user.user_id && user.adoption_validation && (
+                          <tr>
+                            <td colSpan={5} className="bg-gray-50 px-6 py-4">
+                              <h4 className="font-semibold mb-2">Assessment Answers</h4>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {(() => {
+                                  try {
+                                    // Handle both object and string JSONB
+                                    const validation = typeof user.adoption_validation === 'string' 
+                                      ? JSON.parse(user.adoption_validation) 
+                                      : user.adoption_validation;
+                                    
+                                    if (!validation || typeof validation !== 'object') {
+                                      return <div className="text-gray-500">No assessment data available</div>;
+                                    }
+                                    
+                                    return Object.entries(validation).map(([question, answer]) => (
+                                      <div key={question} className="py-1">
+                                        <span className="font-medium text-gray-700">
+                                          {question.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}:
+                                        </span>{" "}
+                                        <span className="text-gray-600">{String(answer)}</span>
+                                      </div>
+                                    ));
+                                  } catch (error) {
+                                    console.error("Error parsing assessment data:", error);
+                                    return <div className="text-red-500">Error displaying assessment data</div>;
+                                  }
+                                })()}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Pending Pet Listings Section */}
           <div
             ref={pendingRef}
             id="pending"

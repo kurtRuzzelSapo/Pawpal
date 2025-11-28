@@ -25,6 +25,7 @@ interface PostInput {
   content: string;
   avatar_url: string | null;
   user_id?: string | null;
+  owner_name?: string | null;
   age?: number;
   breed?: string;
   pet_type?: "Dog" | "Cat" | "Rabbit" | "Bird" | "Guinea Pig" | "Hamster";
@@ -98,6 +99,7 @@ const createPost = async (
       content: post.content,
       image_url: publicURLData.publicUrl,
       avatar_url: post.avatar_url,
+      owner_name: post.owner_name || null,
       age: post.age,
       breed: post.breed,
       pet_type: post.pet_type,
@@ -209,6 +211,7 @@ export const CreatePost = () => {
         name,
         content,
         avatar_url: user?.user_metadata.avatar_url || null,
+        owner_name: user?.user_metadata.full_name || user?.email?.split("@")[0] || null,
         user_id: user.id,
         age: age ? parseInt(age) : undefined,
         breed,
@@ -496,7 +499,8 @@ export const CreatePost = () => {
                   <select
                     id="petType"
                     value={petType || ""}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      // set pet type and reset breed selection
                       setPetType(
                         (e.target.value as
                           | "Dog"
@@ -505,8 +509,9 @@ export const CreatePost = () => {
                           | "Bird"
                           | "Guinea Pig"
                           | "Hamster") || undefined
-                      )
-                    }
+                      );
+                      setBreed("");
+                    }}
                     className="w-full border-2 border-violet-200 bg-white/80 p-5 rounded-2xl text-violet-800 focus:ring-4 focus:ring-violet-200 focus:border-violet-400 transition-all duration-300 group-hover:border-violet-300 font-['Poppins'] text-lg"
                     required
                   >
@@ -584,14 +589,90 @@ export const CreatePost = () => {
                       <FaPaw className="text-violet-500" />
                       Breed
                     </label>
-                    <input
-                      type="text"
-                      id="breed"
-                      value={breed}
-                      onChange={(e) => setBreed(e.target.value)}
-                      className="w-full border-2 border-violet-200 bg-white/80 p-5 rounded-2xl text-violet-800 focus:ring-4 focus:ring-violet-200 focus:border-violet-400 transition-all duration-300 group-hover:border-violet-300 font-['Poppins'] placeholder-violet-400 text-lg"
-                      placeholder="Golden Retriever"
-                    />
+                    {/* Show a dropdown of breeds when a pet type is selected, otherwise a disabled input */}
+                    {petType ? (
+                      <select
+                        id="breed"
+                        value={breed}
+                        onChange={(e) => setBreed(e.target.value)}
+                        className="w-full border-2 border-violet-200 bg-white/80 p-5 rounded-2xl text-violet-800 focus:ring-4 focus:ring-violet-200 focus:border-violet-400 transition-all duration-300 group-hover:border-violet-300 font-['Poppins'] placeholder-violet-400 text-lg"
+                        required
+                      >
+                        <option value="">Select breed</option>
+                        {(() => {
+                          const breedsMap: Record<string, string[]> = {
+                            Dog: [
+                              "Labrador Retriever",
+                              "Golden Retriever",
+                              "German Shepherd",
+                              "Bulldog",
+                              "Beagle",
+                              "Poodle",
+                              "Rottweiler",
+                              "Boxer",
+                              "Dachshund",
+                              "Other",
+                            ],
+                            Cat: [
+                              "Domestic Shorthair",
+                              "Domestic Longhair",
+                              "Siamese",
+                              "Persian",
+                              "Maine Coon",
+                              "Ragdoll",
+                              "Bengal",
+                              "Other",
+                            ],
+                            Rabbit: [
+                              "Holland Lop",
+                              "Netherland Dwarf",
+                              "Lionhead",
+                              "Mini Rex",
+                              "Flemish Giant",
+                              "Other",
+                            ],
+                            Bird: [
+                              "Parakeet",
+                              "Cockatiel",
+                              "Macaw",
+                              "Cockatoo",
+                              "Lovebird",
+                              "Other",
+                            ],
+                            "Guinea Pig": [
+                              "American",
+                              "Abyssinian",
+                              "Peruvian",
+                              "Silkie",
+                              "Other",
+                            ],
+                            Hamster: [
+                              "Syrian",
+                              "Dwarf Campbell",
+                              "Winter White",
+                              "Roborovski",
+                              "Other",
+                            ],
+                          };
+                          const list = breedsMap[petType] || [];
+                          return list.map((b) => (
+                            <option key={b} value={b}>
+                              {b}
+                            </option>
+                          ));
+                        })()}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        id="breed"
+                        value={breed}
+                        onChange={(e) => setBreed(e.target.value)}
+                        className="w-full border-2 border-violet-200 bg-white/80 p-5 rounded-2xl text-violet-800 focus:ring-4 focus:ring-violet-200 focus:border-violet-400 transition-all duration-300 group-hover:border-violet-300 font-['Poppins'] placeholder-violet-400 text-lg"
+                        placeholder="Select a pet type to choose breed"
+                        disabled
+                      />
+                    )}
                   </div>
                 </div>
 

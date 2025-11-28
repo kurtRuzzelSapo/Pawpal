@@ -69,6 +69,11 @@ CREATE POLICY "Enable insert for registration"
     ON users FOR INSERT
     WITH CHECK (true);
 
+-- Allow public read access to basic owner info (for displaying on post cards)
+CREATE POLICY "Enable public read of owner info"
+    ON users FOR SELECT
+    USING (true);
+
 -- Allow public read access to vet profiles
 CREATE POLICY "Enable read access for vets"
     ON users FOR SELECT
