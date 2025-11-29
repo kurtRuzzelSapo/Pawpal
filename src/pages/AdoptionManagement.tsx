@@ -9,6 +9,7 @@ interface AdoptedRecord {
   adopted_at?: string | null;
   adopter_id?: string | null;
   adopter_name?: string | null;
+  adopter_email?: string | null;
 }
 
 export default function AdoptionManagement() {
@@ -25,7 +26,6 @@ export default function AdoptionManagement() {
         const res = await supabase
           .from("posts")
           .select("id, name, image_url, updated_at, created_at, status")
-          .ilike("status", "%adopted%")
           .order("updated_at", { ascending: false });
         postsData = res.data as any[] | null;
         postsError = res.error;
@@ -39,7 +39,6 @@ export default function AdoptionManagement() {
           const res = await supabase
             .from("post")
             .select("id, name, image_url, updated_at, created_at, status")
-            .ilike("status", "%adopted%")
             .order("updated_at", { ascending: false });
           postsData = res.data as any[] | null;
           postsError = res.error;
@@ -50,12 +49,17 @@ export default function AdoptionManagement() {
 
       if (postsError) throw postsError;
 
-      if (!postsData || postsData.length === 0) {
+      const adoptedPosts =
+        postsData?.filter((p: any) =>
+          (p.status || "").toLowerCase().includes("adopted")
+        ) || [];
+
+      if (adoptedPosts.length === 0) {
         setRecords([]);
         return;
       }
 
-      const postIds = postsData.map((p: any) => p.id);
+      const postIds = adoptedPosts.map((p: any) => p.id);
 
       // Fetch adoption applications for these posts (get most recent applicant per post)
       // Fetch adoption records (applications/requests). Try plural then fallback to 'adoption_requests'
@@ -89,11 +93,22 @@ export default function AdoptionManagement() {
 
       if (appsError) throw appsError;
 
-      // Build mapping postId -> most recent approved (or any) application
+      const ACCEPTED_STATUSES = ["approved", "accepted", "adopted", "completed"];
+
+      // Build mapping postId -> preferred approved application (fallback to most recent)
       const appMap = new Map<number, any>();
       (appsData || []).forEach((app: any) => {
-        if (!appMap.has(app.post_id)) {
-          appMap.set(app.post_id, app);
+        const normalizedStatus = (app.status || "").toLowerCase();
+        const isApproved = ACCEPTED_STATUSES.includes(normalizedStatus);
+        const existing = appMap.get(app.post_id);
+
+        if (!existing) {
+          appMap.set(app.post_id, { ...app, __isApproved: isApproved });
+          return;
+        }
+
+        if (!existing.__isApproved && isApproved) {
+          appMap.set(app.post_id, { ...app, __isApproved: true });
         }
       });
 
@@ -115,33 +130,50 @@ export default function AdoptionManagement() {
 
           if (profilesData && profilesData.length > 0) {
             usersMap = profilesData.reduce((acc: Record<string, any>, u: any) => {
-              acc[u.id] = u;
+              acc[u.id] = { id: u.id, full_name: u.full_name, email: null };
               return acc;
             }, {} as Record<string, any>);
-          } else {
-            // Fallback: call RPC `get_user_name` for each id (works even if `profiles` table isn't populated)
-            // Note: this may be slower; but adoption volumes are small in admin view.
-            await Promise.all(
-              adopterIds.map(async (uid: string) => {
-                try {
-                  const { data: nameData, error: nameError } = await supabase.rpc("get_user_name", { user_id: uid });
-                  if (!nameError && nameData) {
-                    // rpc returns scalar text; shape it into an object for mapping
-                    usersMap[uid] = { id: uid, full_name: Array.isArray(nameData) ? nameData[0] : nameData };
-                  }
-                } catch (err) {
-                  console.warn("RPC get_user_name failed for", uid, err);
-                }
-              })
-            );
           }
+
+          // Fetch additional info from users table (for email / fallback names)
+          const { data: userTableData } = await supabase
+            .from("users")
+            .select("user_id, full_name, email")
+            .in("user_id", adopterIds as any);
+
+          (userTableData || []).forEach((u) => {
+            usersMap[u.user_id] = {
+              id: u.user_id,
+              full_name: u.full_name || usersMap[u.user_id]?.full_name || "Unknown",
+              email: u.email || usersMap[u.user_id]?.email || null,
+            };
+          });
+
+          // Fallback: call RPC `get_user_name` for ids still missing
+          const missingIds = adopterIds.filter((uid) => !usersMap[uid]);
+          await Promise.all(
+            missingIds.map(async (uid: string) => {
+              try {
+                const { data: nameData, error: nameError } = await supabase.rpc("get_user_name", { user_id: uid });
+                if (!nameError && nameData) {
+                  usersMap[uid] = {
+                    id: uid,
+                    full_name: Array.isArray(nameData) ? nameData[0] : nameData,
+                    email: null,
+                  };
+                }
+              } catch (err) {
+                console.warn("RPC get_user_name failed for", uid, err);
+              }
+            })
+          );
         } catch (e) {
-          // If profiles or RPC are restricted by RLS, log and continue
+          // If we fail to fetch user info due to RLS, log and continue
           console.warn("Failed to fetch adopter user records:", e);
         }
       }
 
-      const records: AdoptedRecord[] = postsData.map((p: any) => {
+      const records: AdoptedRecord[] = adoptedPosts.map((p: any) => {
         const app = appMap.get(p.id);
         const adopterId = app?.applicant_id || null;
         const adopter = adopterId ? usersMap[adopterId] : null;
@@ -149,9 +181,10 @@ export default function AdoptionManagement() {
           post_id: p.id,
           post_name: p.name,
           image_url: p.image_url || null,
-          adopted_at: app?.created_at || null,
+          adopted_at: app?.created_at || p.updated_at || p.created_at || null,
           adopter_id: adopterId,
           adopter_name: adopter?.full_name || null,
+          adopter_email: adopter?.email || null,
         };
       });
 
@@ -212,8 +245,11 @@ export default function AdoptionManagement() {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {r.adopter_name || "Unknown"}
-                    <div className="text-xs text-gray-400">{r.adopter_id}</div>
+                    <div className="font-medium text-gray-900">{r.adopter_name || "Unknown"}</div>
+                    {r.adopter_email && (
+                      <div className="text-xs text-gray-500">{r.adopter_email}</div>
+                    )}
+                    <div className="text-xs text-gray-400">{r.adopter_id || "N/A"}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {r.adopted_at ? new Date(r.adopted_at).toLocaleString() : "-"}

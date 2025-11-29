@@ -602,7 +602,7 @@ const ChatPage: React.FC = () => {
 
                 // Determine the base display name for the other user (owner/adopter)
                 let baseDisplayName = otherUserInfo.name || "User";
-
+                
                 // If we have adopter_name and owner_name, show the appropriate one
                 if (convo.adopter_name && convo.owner_name) {
                   // Show the other person's name (not the current user's name)
@@ -1589,7 +1589,7 @@ const ChatPage: React.FC = () => {
                   baseName = currentConversation.adopter_name;
                 } else {
                   // Fallback to getUserInfo if we can't match roles
-                  const senderInfo = await getUserInfo(newMessage.sender_id);
+              const senderInfo = await getUserInfo(newMessage.sender_id);
                   baseName = senderInfo.name;
                 }
 

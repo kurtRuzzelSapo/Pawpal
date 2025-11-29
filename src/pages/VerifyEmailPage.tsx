@@ -144,101 +144,102 @@ const VerifyEmailPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex bg-gray-50">
-      {/* Left Section */}
-      <div className="w-1/2 p-12 flex flex-col justify-between bg-white">
+    <div className="min-h-screen flex flex-col md:flex-row bg-gray-50">
+      {/* Left column (mobile-first stacked) */}
+      <div className="w-full md:w-1/2 p-4 md:p-10 flex flex-col justify-between bg-white border-b border-gray-200 md:border-b-0 md:border-r">
         <div>
-          <div className="mb-8">
-            <FaPaw className="text-violet-600 text-4xl" />
+          <div className="mb-4 md:mb-8 flex justify-center md:justify-start">
+            <FaPaw className="text-violet-600 text-2xl md:text-4xl" />
           </div>
-          <h1 className="text-5xl font-bold mb-6 text-gray-900">
+          <h1 className="text-3xl md:text-5xl font-bold mb-3 md:mb-6 text-gray-900 text-center md:text-left">
             Almost there!
           </h1>
-          <p className="text-xl text-gray-600 mb-12">
+          <p className="text-base md:text-xl text-gray-600 mb-6 md:mb-12 text-center md:text-left">
             We're excited to have you join our community.
           </p>
         </div>
 
-        {/* Info Card */}
-        <div className="bg-gray-900 text-white p-8 rounded-2xl">
-          <p className="text-lg mb-6">
+        <div className="w-full max-w-lg mx-auto bg-gray-900 text-white p-4 md:p-8 rounded-2xl text-center md:text-left space-y-4 md:space-y-6">
+          <p className="text-sm md:text-lg">
             "Your account security is important to us. Please verify your email to ensure the safety of your account and pets."
           </p>
-          <div className="flex items-center">
-            <div className="w-12 h-12 bg-violet-600 rounded-full flex items-center justify-center text-xl">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-start gap-3">
+            <div className="w-10 h-10 md:w-12 md:h-12 bg-violet-600 rounded-full flex items-center justify-center text-lg md:text-xl mx-auto sm:mx-0">
               <FaPaw />
             </div>
-            <div className="ml-4">
+            <div className="text-center sm:text-left">
               <p className="font-semibold">Pawpal Team</p>
-              <p className="text-gray-400">Security Notice</p>
+              <p className="text-gray-400 text-sm">Security Notice</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Right Section */}
-      <div className="w-1/2 p-12 flex items-center justify-center">
-        <div className="w-full max-w-md text-center">
-          <div className="mb-8">
-            <div className="bg-violet-100 w-20 h-20 rounded-full mx-auto flex items-center justify-center mb-6">
-              <FaEnvelope className="text-violet-600 text-3xl" />
+      {/* Right column */}
+      <div className="w-full md:w-1/2 p-4 md:p-10 flex items-start md:items-center justify-center">
+        <div className="w-full max-w-md text-center space-y-4 md:space-y-6">
+          <div>
+            <div className="bg-violet-100 w-12 h-12 md:w-20 md:h-20 rounded-full mx-auto flex items-center justify-center mb-3 md:mb-6">
+              <FaEnvelope className="text-violet-600 text-xl md:text-3xl" />
             </div>
-            <h2 className="text-3xl font-bold mb-2 text-gray-900">Check your email</h2>
+            <h2 className="text-2xl md:text-3xl font-bold mb-2 text-gray-900">
+              Check your email
+            </h2>
             {email && (
-              <p className="text-gray-600 mb-4">
+              <p className="text-gray-600 mb-3 md:mb-4 break-words">
                 We've sent a verification link to:
                 <br />
-                <span className="font-medium text-gray-800">{email}</span>
+                <span className="font-semibold text-gray-800">{email}</span>
               </p>
             )}
-            <p className="text-gray-600 mb-8">
-              {message}
-            </p>
+            <p className="text-gray-600 mb-2 md:mb-6 break-words">{message}</p>
           </div>
 
-          <div className="space-y-4">
-            <p className="text-gray-600">
+          <div className="space-y-3 md:space-y-4">
+            <p className="text-gray-600 text-sm md:text-base">
               Didn't receive the email? Check your spam folder.
             </p>
-            
+
             {email && (
               <button
                 onClick={handleResend}
                 disabled={resending}
-                className="w-full bg-violet-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-violet-700 transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-violet-600 text-white py-2.5 md:py-3 px-4 md:px-6 rounded-lg font-semibold hover:bg-violet-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {resending ? "Sending..." : "Resend Verification Email"}
               </button>
             )}
-            
+
             {resendMessage && (
-              <div className={`p-3 rounded-lg ${
-                resendMessage.includes("sent") 
-                  ? "bg-green-50 text-green-700 border border-green-200" 
-                  : "bg-red-50 text-red-700 border border-red-200"
-              }`}>
+              <div
+                className={`p-3 rounded-lg ${
+                  resendMessage.includes("sent")
+                    ? "bg-green-50 text-green-700 border border-green-200"
+                    : "bg-red-50 text-red-700 border border-red-200"
+                }`}
+              >
                 {resendMessage}
               </div>
             )}
-            
-            <div className="flex flex-col gap-2 pt-4">
+
+            <div className="flex flex-col gap-2 pt-2 md:pt-4">
               <Link
                 to="/signup"
-                className="text-violet-600 hover:text-violet-800 font-semibold text-center"
+                className="text-violet-600 hover:text-violet-800 font-semibold"
               >
                 Try using a different email address
               </Link>
               <Link
                 to="/login"
-                className="text-violet-600 hover:text-violet-800 font-semibold text-center"
+                className="text-violet-600 hover:text-violet-800 font-semibold"
               >
                 Return to login
               </Link>
             </div>
           </div>
 
-          <div className="mt-12 p-4 bg-violet-50 rounded-lg">
-            <p className="text-sm text-gray-600">
+          <div className="w-full max-w-lg mx-auto p-3 md:p-4 bg-violet-50 rounded-lg text-center">
+            <p className="text-xs md:text-sm text-gray-600">
               Note: The verification link will expire in 24 hours. If you don't verify your email within this time, you'll need to sign up again.
             </p>
           </div>
