@@ -48,9 +48,6 @@ export const PWAInstallButton = ({ variant = "button", className = "" }: PWAInst
   }, []);
 
   const handleInstallClick = async () => {
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    const isAndroid = /Android/.test(navigator.userAgent);
-
     // If we have the native prompt (Android Chrome), use it
     if (deferredPrompt) {
       try {
@@ -107,7 +104,7 @@ export const PWAInstallButton = ({ variant = "button", className = "" }: PWAInst
                 <div className="space-y-3 text-sm text-gray-700">
                   <div className="flex items-start gap-3">
                     <span className="font-bold text-indigo-600">1.</span>
-                    <p>Tap the <strong>Share</strong> button <span style="font-size: 18px;">📤</span> at the bottom</p>
+                    <p>Tap the <strong>Share</strong> button <span style={{ fontSize: '18px' }}>📤</span> at the bottom</p>
                   </div>
                   <div className="flex items-start gap-3">
                     <span className="font-bold text-indigo-600">2.</span>
@@ -181,7 +178,7 @@ export const PWAInstallButton = ({ variant = "button", className = "" }: PWAInst
               <div className="space-y-3 text-sm text-gray-700">
                 <div className="flex items-start gap-3">
                   <span className="font-bold text-indigo-600">1.</span>
-                  <p>Tap the <strong>Share</strong> button <span style="font-size: 18px;">📤</span> at the bottom</p>
+                  <p>Tap the <strong>Share</strong> button <span style={{ fontSize: '18px' }}>📤</span> at the bottom</p>
                 </div>
                 <div className="flex items-start gap-3">
                   <span className="font-bold text-indigo-600">2.</span>

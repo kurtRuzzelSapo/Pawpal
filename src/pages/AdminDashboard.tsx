@@ -5,7 +5,7 @@ import AdminSidebar from "../components/AdminSidebar";
 import CreateVetAccount from "../components/CreateVetAccount";
 import AdoptionManagement from "./AdoptionManagement";
 import { Routes, Route, useNavigate } from "react-router-dom";
-import { FaTimes } from "react-icons/fa";
+import { FaTimes, FaBars } from "react-icons/fa";
 import { useAuth } from "../context/AuthContext";
 import { SignOutConfirmationModal } from "../components/SignOutConfirmationModal";
 import React from "react";
@@ -53,7 +53,7 @@ interface DashboardStats {
   }[];
 }
 
-const DashboardNavbar = () => {
+const DashboardNavbar = ({ onMenuClick }: { onMenuClick: () => void }) => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const [showSignOutModal, setShowSignOutModal] = useState(false);
@@ -69,15 +69,24 @@ const DashboardNavbar = () => {
 
   return (
     <>
-      <nav className="fixed top-0 left-0 w-full h-16 bg-violet-700 text-white flex items-center justify-between px-8 shadow z-50">
-        <div className="font-bold text-lg tracking-wide">Pawpal Admin</div>
+      <nav className="fixed top-0 left-0 w-full h-16 bg-violet-700 text-white flex items-center justify-between px-4 md:px-8 shadow z-50">
         <div className="flex items-center gap-4">
-          <span className="font-medium">
+          <button
+            onClick={onMenuClick}
+            className="md:hidden text-white hover:text-violet-200 p-2"
+            aria-label="Toggle menu"
+          >
+            <FaBars className="text-xl" />
+          </button>
+          <div className="font-bold text-lg tracking-wide">Pawpal Admin</div>
+        </div>
+        <div className="flex items-center gap-2 md:gap-4">
+          <span className="font-medium text-sm md:text-base hidden sm:inline">
             {user?.user_metadata?.full_name || user?.email || "Admin"}
           </span>
           <button
             onClick={handleSignOutClick}
-            className="bg-white text-violet-700 px-4 py-2 rounded font-semibold hover:bg-violet-100 transition-colors"
+            className="bg-white text-violet-700 px-3 md:px-4 py-2 rounded font-semibold hover:bg-violet-100 transition-colors text-sm md:text-base"
           >
             Sign Out
           </button>
@@ -1234,6 +1243,7 @@ const AdminDashboard = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<string>("");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -1298,10 +1308,14 @@ const AdminDashboard = () => {
 
   return (
     <>
-      <DashboardNavbar />
+      <DashboardNavbar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
       <div className="flex min-h-screen bg-gray-50 pt-16">
-        <AdminSidebar userRole={userRole} />
-        <div className="flex-1 ml-64">
+        <AdminSidebar 
+          userRole={userRole} 
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+        />
+        <div className="flex-1 md:ml-64">
           <Routes>
             <Route path="/" element={<DashboardHome />} />
             {userRole === "admin" && (

@@ -3,7 +3,7 @@ import { supabase } from "../supabase-client";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
-import { FaTimes, FaCheck } from "react-icons/fa";
+import { FaTimes, FaCheck, FaBars } from "react-icons/fa";
 import { SignOutConfirmationModal } from "../components/SignOutConfirmationModal";
 import { DeclineUserModal } from "../components/DeclineUserModal";
 
@@ -39,49 +39,97 @@ interface User {
   declined_reason?: string | null;
 }
 
-const VetSidebar = ({ activeSection }: { activeSection: string }) => {
+const VetSidebar = ({ 
+  activeSection, 
+  isOpen, 
+  onClose 
+}: { 
+  activeSection: string;
+  isOpen: boolean;
+  onClose: () => void;
+}) => {
   return (
-    <aside className="fixed top-16 left-0 w-64 h-[calc(100vh-4rem)] bg-white shadow-lg z-40 flex flex-col pt-8">
-      <nav className="flex flex-col gap-2 px-4">
-        <span className="text-violet-700 font-semibold text-lg mb-4">
-          Vet Menu
-        </span>
-        <a
-          href="#pending-users"
-          className={`px-3 py-2 rounded-lg font-medium transition-colors ${
-            activeSection === "pending-users"
-              ? "bg-violet-200 text-violet-900"
-              : "hover:bg-violet-50 text-violet-800"
-          }`}
-        >
-          Pending Users
-        </a>
-        <a
-          href="#pending"
-          className={`px-3 py-2 rounded-lg font-medium transition-colors ${
-            activeSection === "pending"
-              ? "bg-violet-200 text-violet-900"
-              : "hover:bg-violet-50 text-violet-800"
-          }`}
-        >
-          Pending Listings
-        </a>
-        <a
-          href="#history"
-          className={`px-3 py-2 rounded-lg font-medium transition-colors ${
-            activeSection === "history"
-              ? "bg-violet-200 text-violet-900"
-              : "hover:bg-violet-50 text-violet-800"
-          }`}
-        >
-          Adoption History
-        </a>
-      </nav>
-    </aside>
+    <>
+      {/* Overlay for mobile */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          onClick={onClose}
+        />
+      )}
+      
+      {/* Sidebar */}
+      <aside
+        className={`fixed top-16 left-0 w-64 h-[calc(100vh-4rem)] bg-white shadow-lg z-50 flex flex-col pt-8 transition-transform duration-300 ease-in-out ${
+          isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        }`}
+      >
+        <nav className="flex flex-col gap-2 px-4">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-violet-700 font-semibold text-lg">
+              Vet Menu
+            </span>
+            <button
+              onClick={onClose}
+              className="md:hidden text-violet-700 hover:text-violet-900 p-2"
+              aria-label="Close menu"
+            >
+              <FaTimes />
+            </button>
+          </div>
+          <a
+            href="#pending-users"
+            onClick={() => {
+              // Close on mobile when link is clicked
+              if (window.innerWidth < 768) {
+                onClose();
+              }
+            }}
+            className={`px-3 py-2 rounded-lg font-medium transition-colors ${
+              activeSection === "pending-users"
+                ? "bg-violet-200 text-violet-900"
+                : "hover:bg-violet-50 text-violet-800"
+            }`}
+          >
+            Pending Users
+          </a>
+          <a
+            href="#pending"
+            onClick={() => {
+              if (window.innerWidth < 768) {
+                onClose();
+              }
+            }}
+            className={`px-3 py-2 rounded-lg font-medium transition-colors ${
+              activeSection === "pending"
+                ? "bg-violet-200 text-violet-900"
+                : "hover:bg-violet-50 text-violet-800"
+            }`}
+          >
+            Pending Listings
+          </a>
+          <a
+            href="#history"
+            onClick={() => {
+              if (window.innerWidth < 768) {
+                onClose();
+              }
+            }}
+            className={`px-3 py-2 rounded-lg font-medium transition-colors ${
+              activeSection === "history"
+                ? "bg-violet-200 text-violet-900"
+                : "hover:bg-violet-50 text-violet-800"
+            }`}
+          >
+            Adoption History
+          </a>
+        </nav>
+      </aside>
+    </>
   );
 };
 
-const VetNavbar = () => {
+const VetNavbar = ({ onMenuClick }: { onMenuClick: () => void }) => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const [showSignOutModal, setShowSignOutModal] = useState(false);
@@ -97,15 +145,24 @@ const VetNavbar = () => {
 
   return (
     <>
-      <nav className="fixed top-0 left-0 w-full h-16 bg-violet-700 text-white flex items-center justify-between px-8 shadow z-50">
-        <div className="font-bold text-lg tracking-wide">Pawpal Vet</div>
+      <nav className="fixed top-0 left-0 w-full h-16 bg-violet-700 text-white flex items-center justify-between px-4 md:px-8 shadow z-50">
         <div className="flex items-center gap-4">
-          <span className="font-medium">
+          <button
+            onClick={onMenuClick}
+            className="md:hidden text-white hover:text-violet-200 p-2"
+            aria-label="Toggle menu"
+          >
+            <FaBars className="text-xl" />
+          </button>
+          <div className="font-bold text-lg tracking-wide">Pawpal Vet</div>
+        </div>
+        <div className="flex items-center gap-2 md:gap-4">
+          <span className="font-medium text-sm md:text-base hidden sm:inline">
             {user?.user_metadata?.full_name || user?.email || "Vet"}
           </span>
           <button
             onClick={handleSignOutClick}
-            className="bg-white text-violet-700 px-4 py-2 rounded font-semibold hover:bg-violet-100 transition-colors"
+            className="bg-white text-violet-700 px-3 md:px-4 py-2 rounded font-semibold hover:bg-violet-100 transition-colors text-sm md:text-base"
           >
             Sign Out
           </button>
@@ -140,6 +197,7 @@ export default function VetDashboard() {
   const [viewedAssessments, setViewedAssessments] = useState<Record<string, boolean>>({});
   const [showDeclineModal, setShowDeclineModal] = useState(false);
   const [userToDecline, setUserToDecline] = useState<User | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     if (role !== "vet") return;
@@ -561,10 +619,14 @@ export default function VetDashboard() {
 
   return (
     <>
-      <VetNavbar />
+      <VetNavbar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
       <div className="flex min-h-screen bg-gray-50 pt-16">
-        <VetSidebar activeSection={activeSection} />
-        <main className="flex-1 ml-64 p-8">
+        <VetSidebar 
+          activeSection={activeSection} 
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+        />
+        <main className="flex-1 md:ml-64 p-4 md:p-8">
           {/* Pending Users Section */}
           <div
             ref={pendingUsersRef}
