@@ -13,7 +13,8 @@ export const PWAInstallPrompt = () => {
 
   useEffect(() => {
     // Check if app is already installed
-    if (window.matchMedia("(display-mode: standalone)").matches) {
+    if (window.matchMedia("(display-mode: standalone)").matches || 
+        (window.navigator as any).standalone === true) {
       setIsInstalled(true);
       return;
     }
@@ -23,82 +24,180 @@ export const PWAInstallPrompt = () => {
     const dismissedTime = dismissed ? parseInt(dismissed, 10) : 0;
     const daysSinceDismissed = (Date.now() - dismissedTime) / (1000 * 60 * 60 * 24);
 
-    // Show prompt if not dismissed in the last 7 days
-    if (!dismissed || daysSinceDismissed > 7) {
-      // Listen for the beforeinstallprompt event
-      const handleBeforeInstallPrompt = (e: Event) => {
-        e.preventDefault();
-        setDeferredPrompt(e as BeforeInstallPromptEvent);
-        setShowPrompt(true);
-      };
-
-      window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
-
-      // Check if app is installed after a delay (to catch standalone mode)
-      const checkInstalled = () => {
-        if (window.matchMedia("(display-mode: standalone)").matches) {
-          setIsInstalled(true);
-          setShowPrompt(false);
-        }
-      };
-
-      setTimeout(checkInstalled, 1000);
-
-      return () => {
-        window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
-      };
-    }
-  }, []);
-
-  const handleInstallClick = async () => {
-    if (!deferredPrompt) {
-      // Fallback for browsers that don't support beforeinstallprompt
-      // Show instructions based on the device
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-      const isAndroid = /Android/.test(navigator.userAgent);
-
-      if (isIOS) {
-        alert(
-          "To install this app on your iOS device:\n\n" +
-          "1. Tap the Share button (square with arrow)\n" +
-          "2. Scroll down and tap 'Add to Home Screen'\n" +
-          "3. Tap 'Add' in the top right corner"
-        );
-      } else if (isAndroid) {
-        alert(
-          "To install this app on your Android device:\n\n" +
-          "1. Tap the menu (three dots) in your browser\n" +
-          "2. Select 'Add to Home screen' or 'Install app'\n" +
-          "3. Tap 'Install' or 'Add'"
-        );
-      } else {
-        alert(
-          "To install this app:\n\n" +
-          "Look for an install icon in your browser's address bar, " +
-          "or check your browser's menu for 'Install' or 'Add to Home Screen' option."
-        );
-      }
-      handleDismiss();
+    // Don't show if dismissed in the last 7 days
+    if (dismissed && daysSinceDismissed <= 7) {
       return;
     }
 
-    // Show the install prompt
-    deferredPrompt.prompt();
+    // Detect mobile devices
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+      navigator.userAgent
+    );
 
-    // Wait for the user to respond
-    const { outcome } = await deferredPrompt.userChoice;
+    let showTimeout: NodeJS.Timeout;
+    let hasShown = false;
 
-    if (outcome === "accepted") {
-      console.log("User accepted the install prompt");
-      setIsInstalled(true);
-      setShowPrompt(false);
-    } else {
-      console.log("User dismissed the install prompt");
-      handleDismiss();
+    // Listen for the beforeinstallprompt event (mainly for Android Chrome)
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e as BeforeInstallPromptEvent);
+      if (!hasShown) {
+        setShowPrompt(true);
+        hasShown = true;
+      }
+    };
+
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+
+    // For mobile devices, show prompt after a delay even without beforeinstallprompt
+    // This is especially important for iOS which doesn't support beforeinstallprompt
+    if (isMobile) {
+      // Show prompt after 3 seconds on mobile (gives time for beforeinstallprompt to fire first)
+      showTimeout = setTimeout(() => {
+        setShowPrompt((prev) => {
+          if (!prev && !hasShown) {
+            hasShown = true;
+            return true;
+          }
+          return prev;
+        });
+      }, 3000);
     }
 
-    // Clear the deferred prompt
-    setDeferredPrompt(null);
+    // Check if app is installed after a delay (to catch standalone mode)
+    const checkInstalled = () => {
+      if (window.matchMedia("(display-mode: standalone)").matches || 
+          (window.navigator as any).standalone === true) {
+        setIsInstalled(true);
+        setShowPrompt(false);
+      }
+    };
+
+    setTimeout(checkInstalled, 1000);
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+      if (showTimeout) {
+        clearTimeout(showTimeout);
+      }
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isAndroid = /Android/.test(navigator.userAgent);
+
+    // If we have the native prompt (Android Chrome), use it
+    if (deferredPrompt) {
+      try {
+        // Show the install prompt
+        await deferredPrompt.prompt();
+
+        // Wait for the user to respond
+        const { outcome } = await deferredPrompt.userChoice;
+
+        if (outcome === "accepted") {
+          console.log("User accepted the install prompt");
+          setIsInstalled(true);
+          setShowPrompt(false);
+        } else {
+          console.log("User dismissed the install prompt");
+          handleDismiss();
+        }
+
+        // Clear the deferred prompt
+        setDeferredPrompt(null);
+        return;
+      } catch (error) {
+        console.error("Error showing install prompt:", error);
+        // Fall through to show instructions
+      }
+    }
+
+    // Fallback: Show instructions modal for iOS or browsers without native prompt
+    if (isIOS) {
+      // Create a better modal for iOS instructions
+      const modal = document.createElement("div");
+      modal.className = "fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4";
+      modal.innerHTML = `
+        <div class="bg-white rounded-xl p-6 max-w-sm w-full shadow-2xl">
+          <h3 class="text-xl font-bold text-gray-900 mb-4">Install Pawpal on iOS</h3>
+          <div class="space-y-3 text-sm text-gray-700 mb-6">
+            <div class="flex items-start gap-3">
+              <span class="font-bold text-violet-600">1.</span>
+              <p>Tap the <strong>Share</strong> button <span style="font-size: 18px;">📤</span> at the bottom of your screen</p>
+            </div>
+            <div class="flex items-start gap-3">
+              <span class="font-bold text-violet-600">2.</span>
+              <p>Scroll down and tap <strong>"Add to Home Screen"</strong></p>
+            </div>
+            <div class="flex items-start gap-3">
+              <span class="font-bold text-violet-600">3.</span>
+              <p>Tap <strong>"Add"</strong> in the top right corner</p>
+            </div>
+          </div>
+          <button class="w-full bg-violet-600 text-white py-3 rounded-lg font-semibold hover:bg-violet-700 transition-colors">
+            Got it!
+          </button>
+        </div>
+      `;
+      document.body.appendChild(modal);
+      
+      const button = modal.querySelector("button");
+      const closeModal = () => {
+        document.body.removeChild(modal);
+        handleDismiss();
+      };
+      button?.addEventListener("click", closeModal);
+      modal.addEventListener("click", (e) => {
+        if (e.target === modal) closeModal();
+      });
+    } else if (isAndroid) {
+      // Android instructions
+      const modal = document.createElement("div");
+      modal.className = "fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4";
+      modal.innerHTML = `
+        <div class="bg-white rounded-xl p-6 max-w-sm w-full shadow-2xl">
+          <h3 class="text-xl font-bold text-gray-900 mb-4">Install Pawpal on Android</h3>
+          <div class="space-y-3 text-sm text-gray-700 mb-6">
+            <div class="flex items-start gap-3">
+              <span class="font-bold text-violet-600">1.</span>
+              <p>Tap the <strong>menu</strong> (three dots ⋮) in your browser</p>
+            </div>
+            <div class="flex items-start gap-3">
+              <span class="font-bold text-violet-600">2.</span>
+              <p>Select <strong>"Add to Home screen"</strong> or <strong>"Install app"</strong></p>
+            </div>
+            <div class="flex items-start gap-3">
+              <span class="font-bold text-violet-600">3.</span>
+              <p>Tap <strong>"Install"</strong> or <strong>"Add"</strong></p>
+            </div>
+          </div>
+          <button class="w-full bg-violet-600 text-white py-3 rounded-lg font-semibold hover:bg-violet-700 transition-colors">
+            Got it!
+          </button>
+        </div>
+      `;
+      document.body.appendChild(modal);
+      
+      const button = modal.querySelector("button");
+      const closeModal = () => {
+        document.body.removeChild(modal);
+        handleDismiss();
+      };
+      button?.addEventListener("click", closeModal);
+      modal.addEventListener("click", (e) => {
+        if (e.target === modal) closeModal();
+      });
+    } else {
+      // Desktop fallback
+      alert(
+        "To install this app:\n\n" +
+        "Look for an install icon in your browser's address bar, " +
+        "or check your browser's menu for 'Install' or 'Add to Home Screen' option."
+      );
+      handleDismiss();
+    }
   };
 
   const handleDismiss = () => {
