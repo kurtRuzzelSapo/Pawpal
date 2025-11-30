@@ -22,6 +22,7 @@ import VerifyEmailPage from "./pages/VerifyEmailPage";
 import VetDashboard from "./pages/VetDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import Home from "./pages/Home";
+import { PWAInstallPrompt } from "./components/PWAInstallPrompt";
 
 const PetProfileWrapper = () => {
   const { id } = useParams<{ id: string }>();
@@ -119,6 +120,7 @@ function App() {
           }
         />
       </Routes>
+      <PWAInstallPrompt />
     </div>
   );
 }
