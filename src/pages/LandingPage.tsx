@@ -9,6 +9,7 @@ import {
   FaTimes,
 } from "react-icons/fa";
 import { useAuth } from "../context/AuthContext";
+import { PWAInstallButton } from "../components/PWAInstallButton";
 
 const LandingPage = () => {
   const navigate = useNavigate();
@@ -201,12 +202,15 @@ const LandingPage = () => {
               We Are well-equipped and well-prepared to protect your heath and
               hygiene while serve you. Our preparations include-
             </p>
-            <button
-              onClick={handleGetStarted}
-              className="bg-emerald-500 text-white px-6 sm:px-8 py-3 rounded-md text-base sm:text-lg font-medium hover:bg-emerald-600 transition-all duration-300 shadow-lg hover:shadow-xl animate-fade-in delay-700"
-            >
-              Get Started
-            </button>
+            <div className="flex flex-col sm:flex-row gap-4 items-center justify-center animate-fade-in delay-700">
+              <button
+                onClick={handleGetStarted}
+                className="bg-emerald-500 text-white px-6 sm:px-8 py-3 rounded-md text-base sm:text-lg font-medium hover:bg-emerald-600 transition-all duration-300 shadow-lg hover:shadow-xl"
+              >
+                Get Started
+              </button>
+              <PWAInstallButton variant="hero" />
+            </div>
           </div>
         </div>
       </div>
