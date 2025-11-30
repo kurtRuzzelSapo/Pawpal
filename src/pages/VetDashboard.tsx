@@ -5,6 +5,7 @@ import { toast } from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 import { FaTimes, FaCheck } from "react-icons/fa";
 import { SignOutConfirmationModal } from "../components/SignOutConfirmationModal";
+import { DeclineUserModal } from "../components/DeclineUserModal";
 
 interface Post {
   id: number;
@@ -137,6 +138,8 @@ export default function VetDashboard() {
   const [showModal, setShowModal] = useState(false);
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
   const [viewedAssessments, setViewedAssessments] = useState<Record<string, boolean>>({});
+  const [showDeclineModal, setShowDeclineModal] = useState(false);
+  const [userToDecline, setUserToDecline] = useState<User | null>(null);
 
   useEffect(() => {
     if (role !== "vet") return;
@@ -223,21 +226,26 @@ export default function VetDashboard() {
     }
   };
 
-  const handleDeclineUser = async (userId: string) => {
-    const reason = window.prompt(
-      "Optional: Enter a reason for declining this account (leave blank to skip)."
-    );
+  const handleDeclineUserClick = (user: User) => {
+    setUserToDecline(user);
+    setShowDeclineModal(true);
+  };
+
+  const handleDeclineUser = async (reason: string) => {
+    if (!userToDecline) return;
 
     try {
       const { error } = await supabase
         .from("users")
         .update({ declined: true, declined_reason: reason || null })
-        .eq("user_id", userId);
+        .eq("user_id", userToDecline.user_id);
 
       if (error) throw error;
 
       toast.success("User declined and removed from pending approvals.");
       fetchPendingUsers();
+      setShowDeclineModal(false);
+      setUserToDecline(null);
     } catch (error) {
       console.error("Error declining user:", error);
       toast.error("Failed to decline user");
@@ -296,7 +304,7 @@ export default function VetDashboard() {
       .from("posts")
       .select("*")
       .eq("vet_id", vetId)
-      .eq("status", "approved");
+      .in("status", ["approved", "Adopted"]); // FIX: fetch both
     if (!error) setHistory(data || []);
   };
 
@@ -650,7 +658,7 @@ export default function VetDashboard() {
                                 Verify
                               </button>
                               <button
-                                onClick={() => handleDeclineUser(user.user_id)}
+                                onClick={() => handleDeclineUserClick(user)}
                                 className="flex-1 bg-red-500 text-white px-4 py-2 rounded transition-colors hover:bg-red-600"
                               >
                                 Decline
@@ -845,6 +853,17 @@ export default function VetDashboard() {
             <PostPreviewModal
               post={selectedPost}
               onClose={() => setShowModal(false)}
+            />
+          )}
+          {showDeclineModal && userToDecline && (
+            <DeclineUserModal
+              isOpen={showDeclineModal}
+              onClose={() => {
+                setShowDeclineModal(false);
+                setUserToDecline(null);
+              }}
+              onConfirm={handleDeclineUser}
+              userName={userToDecline.full_name}
             />
           )}
         </main>

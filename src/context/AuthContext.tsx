@@ -5,6 +5,7 @@ import { supabase } from "../supabase-client";
 interface AuthResponse {
   success: boolean;
   error?: string;
+  declinedReason?: string | null;
 }
 
 interface AdoptionValidation {
@@ -392,10 +393,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         };
       }
 
-      // Get user role and verification from users table
+      // Get user role, verification, and declined status from users table
       const { data: userData, error: userError } = await supabase
         .from("users")
-        .select("role, verified")
+        .select("role, verified, declined, declined_reason")
         .eq("user_id", data.user.id)
         .single();
 
@@ -405,6 +406,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return {
           success: false,
           error: "Error fetching user account. Please contact support.",
+        };
+      }
+
+      // Check if account is declined first
+      if (userData.declined === true) {
+        await supabase.auth.signOut();
+        const reasonText = userData.declined_reason 
+          ? ` Reason: ${userData.declined_reason}`
+          : "";
+        return {
+          success: false,
+          error: `Your account has been declined and you cannot log in.${reasonText}`,
+          declinedReason: userData.declined_reason || null,
         };
       }
 

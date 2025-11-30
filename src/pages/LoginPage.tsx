@@ -9,6 +9,7 @@ const LoginPage = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [declinedReason, setDeclinedReason] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -16,11 +17,13 @@ const LoginPage = () => {
     e.preventDefault();
     setLoading(true);
     setError("");
+    setDeclinedReason(null);
 
-    const { success, error } = await signInWithEmail(email, password);
+    const { success, error, declinedReason } = await signInWithEmail(email, password);
 
     if (!success) {
       setError(error || "Failed to sign in");
+      setDeclinedReason(declinedReason || null);
       setLoading(false);
       return;
     }
@@ -140,7 +143,13 @@ const LoginPage = () => {
 
             {error && (
               <div className="text-red-600 text-sm p-3 bg-red-50 rounded-lg border border-red-200">
-                {error}
+                <div className="font-semibold mb-1">{error}</div>
+                {declinedReason && (
+                  <div className="mt-2 pt-2 border-t border-red-200">
+                    <div className="font-medium text-red-700 mb-1">Reason:</div>
+                    <div className="text-red-600">{declinedReason}</div>
+                  </div>
+                )}
               </div>
             )}
 

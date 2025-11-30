@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { FaPaw, FaLock, FaEnvelope, FaUser, FaEye, FaEyeSlash } from "react-icons/fa";
 import { useAuth } from "../context/AuthContext";
+import { TermsOfServiceModal } from "../components/TermsOfServiceModal";
 
 interface AdoptionValidation {
   hasExperience: string;
@@ -24,6 +25,8 @@ const SignUpPage = () => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
   const [adoptionAnswers, setAdoptionAnswers] = useState<AdoptionValidation>({
     hasExperience: "",
     stableLiving: "",
@@ -114,6 +117,10 @@ const SignUpPage = () => {
       );
       return false;
     }
+    if (!acceptedTerms) {
+      setError("You must accept the Terms of Service to continue");
+      return false;
+    }
     return true;
   };
 
@@ -150,6 +157,12 @@ const SignUpPage = () => {
     }
 
     if (!validateAdoptionStep(4)) {
+      return;
+    }
+
+    // Final check: ensure terms are still accepted
+    if (!acceptedTerms) {
+      setError("You must accept the Terms of Service to create an account");
       return;
     }
 
@@ -360,6 +373,32 @@ const SignUpPage = () => {
                      </div>
                    </div>
                  </div>
+
+                 <div className="flex items-start">
+                   <input
+                     type="checkbox"
+                     id="termsCheckbox"
+                     checked={acceptedTerms}
+                     onChange={(e) => {
+                       setAcceptedTerms(e.target.checked);
+                       setError("");
+                     }}
+                     className="mt-1 mr-3 h-4 w-4 text-violet-600 focus:ring-violet-500 border-gray-300 rounded"
+                   />
+                   <label htmlFor="termsCheckbox" className="text-sm text-gray-700 cursor-pointer">
+                     I agree to the{" "}
+                     <button
+                       type="button"
+                       onClick={(e) => {
+                         e.preventDefault();
+                         setShowTermsModal(true);
+                       }}
+                       className="text-violet-600 hover:text-violet-800 underline font-semibold"
+                     >
+                       Terms of Service
+                     </button>
+                   </label>
+                 </div>
               </div>
             )}
 
@@ -459,6 +498,12 @@ const SignUpPage = () => {
           </form>
         </div>
       </div>
+
+      {/* Terms of Service Modal */}
+      <TermsOfServiceModal
+        isOpen={showTermsModal}
+        onClose={() => setShowTermsModal(false)}
+      />
     </div>
   );
 };

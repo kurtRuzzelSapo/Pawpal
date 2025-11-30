@@ -1,0 +1,44 @@
+{
+  "name": "Pawpal - Pet Adoption Platform",
+  "short_name": "Pawpal",
+  "description": "Connect with pet lovers and find your perfect companion",
+  "theme_color": "#7c3aed",
+  "background_color": "#ffffff",
+  "display": "standalone",
+  "orientation": "portrait",
+  "scope": "/",
+  "start_url": "/",
+  "icons": [
+    {
+      "src": "/Pawpal_logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/Pawpal_logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["lifestyle", "social", "pets"],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Browse Pets",
+      "short_name": "Browse",
+      "description": "Browse available pets for adoption",
+      "url": "/home",
+      "icons": [{ "src": "/Pawpal_logo.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Create Post",
+      "short_name": "Create",
+      "description": "Create a new pet adoption post",
+      "url": "/create-post",
+      "icons": [{ "src": "/Pawpal_logo.png", "sizes": "96x96" }]
+    }
+  ]
+}
+
