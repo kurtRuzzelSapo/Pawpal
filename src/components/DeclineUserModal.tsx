@@ -58,9 +58,6 @@ export const DeclineUserModal = ({
     onClose();
   };
 
-  // Allow confirmation even without a reason (reason is optional)
-  const canConfirm = true;
-
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 min-h-screen">
       {/* Backdrop */}
