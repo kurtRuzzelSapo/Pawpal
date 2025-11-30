@@ -5,6 +5,7 @@ import { supabase } from "../supabase-client";
 interface AuthResponse {
   success: boolean;
   error?: string;
+  declinedReason?: string | null;
 }
 
 interface AdoptionValidation {
@@ -109,10 +110,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
       }
       
-      // Check if user already exists
+      // Check if user already exists - get existing role to preserve it
       const { data: existingUser, error: checkError } = await supabase
         .from("users")
-        .select("user_id, adoption_validation")
+        .select("user_id, role, adoption_validation")
         .eq("user_id", user.id)
         .maybeSingle();
       
@@ -124,23 +125,32 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // Only use existing adoption_validation if there's no cached one (to avoid overwriting with null)
       const finalAdoptionValidation = adoptionValidation || existingUser?.adoption_validation || null;
       
+      // Preserve existing role from database - don't overwrite admin/vet roles
+      // Only use metadata role if user doesn't exist yet (new signup)
+      const finalRole = existingUser?.role || user.user_metadata?.role || "user";
+      
       console.log("Final adoption validation for upsert:", finalAdoptionValidation);
+      console.log("Preserving role:", finalRole, "(existing:", existingUser?.role, ", metadata:", user.user_metadata?.role, ")");
       
       const userData = {
         user_id: user.id,
         email: user.email || "",
         full_name: user.user_metadata?.full_name || user.email?.split("@")[0] || "Unknown",
-        role: user.user_metadata?.role || "user",
+        role: finalRole,
         adoption_validation: finalAdoptionValidation,
         created_at: new Date().toISOString(),
       };
       
       console.log("Upserting user data:", userData);
       
-      // Upsert user profile regardless of admin/vet verification status
+      // Upsert user profile - use update only for role to preserve existing role
       const { data: upsertData, error: upsertError } = await supabase
         .from("users")
-        .upsert([userData], { onConflict: 'user_id' })
+        .upsert([userData], { 
+          onConflict: 'user_id',
+          // Only update role if it's not already set (preserve existing admin/vet roles)
+          ignoreDuplicates: false
+        })
         .select();
       
       if (upsertError) {
@@ -383,10 +393,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         };
       }
 
-      // Get user role and verification from users table
+      // Get user role, verification, and declined status from users table
       const { data: userData, error: userError } = await supabase
         .from("users")
-        .select("role, verified")
+        .select("role, verified, declined, declined_reason")
         .eq("user_id", data.user.id)
         .single();
 
@@ -396,6 +406,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return {
           success: false,
           error: "Error fetching user account. Please contact support.",
+        };
+      }
+
+      // Check if account is declined first
+      if (userData.declined === true) {
+        await supabase.auth.signOut();
+        const reasonText = userData.declined_reason 
+          ? ` Reason: ${userData.declined_reason}`
+          : "";
+        return {
+          success: false,
+          error: `Your account has been declined and you cannot log in.${reasonText}`,
+          declinedReason: userData.declined_reason || null,
         };
       }
 
@@ -424,18 +447,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         } catch {}
         localStorage.removeItem("pendingAdoptionValidation"); // Clean up after inserting
       }
+      // Preserve existing role - don't overwrite admin/vet roles
+      // Only update if the role from database is valid, otherwise keep existing
       const { error: upsertError } = await supabase
         .from("users")
         .upsert([
           {
             user_id: data.user.id,
             email: data.user.email,
-            role: userData?.role || "user",
+            role: userData?.role || "user", // userData comes from database query, so it's already the correct role
             full_name: data.user.user_metadata?.full_name || data.user.email?.split("@")[0] || "Unknown",
             adoption_validation: adoptionValidation,
             created_at: new Date().toISOString(),
           }
-        ], { onConflict: 'user_id' });
+        ], { 
+          onConflict: 'user_id',
+          // Don't update role if it already exists (preserve admin/vet roles)
+          // The role from userData is already correct from the database query above
+        });
       if (upsertError) {
         console.error('Upsert error:', upsertError);
       }

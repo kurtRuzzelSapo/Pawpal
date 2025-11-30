@@ -5,6 +5,7 @@ import { toast } from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 import { FaTimes, FaCheck } from "react-icons/fa";
 import { SignOutConfirmationModal } from "../components/SignOutConfirmationModal";
+import { DeclineUserModal } from "../components/DeclineUserModal";
 
 interface Post {
   id: number;
@@ -34,6 +35,8 @@ interface User {
   verified: boolean;
   created_at: string;
   adoption_validation?: { [key: string]: string };
+  declined?: boolean;
+  declined_reason?: string | null;
 }
 
 const VetSidebar = ({ activeSection }: { activeSection: string }) => {
@@ -135,6 +138,8 @@ export default function VetDashboard() {
   const [showModal, setShowModal] = useState(false);
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
   const [viewedAssessments, setViewedAssessments] = useState<Record<string, boolean>>({});
+  const [showDeclineModal, setShowDeclineModal] = useState(false);
+  const [userToDecline, setUserToDecline] = useState<User | null>(null);
 
   useEffect(() => {
     if (role !== "vet") return;
@@ -174,6 +179,7 @@ export default function VetDashboard() {
         .select("*")
         .eq("role", "user")
         .eq("verified", false)
+        .eq("declined", false)
         .order("created_at", { ascending: false });
 
       if (usersError) {
@@ -217,6 +223,32 @@ export default function VetDashboard() {
       toast.error("Failed to fetch pending users");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeclineUserClick = (user: User) => {
+    setUserToDecline(user);
+    setShowDeclineModal(true);
+  };
+
+  const handleDeclineUser = async (reason: string) => {
+    if (!userToDecline) return;
+
+    try {
+      const { error } = await supabase
+        .from("users")
+        .update({ declined: true, declined_reason: reason || null })
+        .eq("user_id", userToDecline.user_id);
+
+      if (error) throw error;
+
+      toast.success("User declined and removed from pending approvals.");
+      fetchPendingUsers();
+      setShowDeclineModal(false);
+      setUserToDecline(null);
+    } catch (error) {
+      console.error("Error declining user:", error);
+      toast.error("Failed to decline user");
     }
   };
 
@@ -272,7 +304,7 @@ export default function VetDashboard() {
       .from("posts")
       .select("*")
       .eq("vet_id", vetId)
-      .eq("status", "approved");
+      .in("status", ["approved", "Adopted"]); // FIX: fetch both
     if (!error) setHistory(data || []);
   };
 
@@ -610,20 +642,28 @@ export default function VetDashboard() {
                                 Awaiting assessment
                               </div>
                             )}
-                            <button
-                              disabled={
-                                !user.adoption_validation ||
-                                !viewedAssessments[user.user_id]
-                              }
-                              onClick={() => handleVerifyUser(user.user_id)}
-                              className={`bg-green-500 text-white px-4 py-2 rounded transition-colors ${
-                                !user.adoption_validation || !viewedAssessments[user.user_id]
-                                  ? "opacity-50 cursor-not-allowed"
-                                  : "hover:bg-green-600"
-                              }`}
-                            >
-                              Verify Account
-                            </button>
+                            <div className="flex flex-col sm:flex-row gap-2">
+                              <button
+                                disabled={
+                                  !user.adoption_validation ||
+                                  !viewedAssessments[user.user_id]
+                                }
+                                onClick={() => handleVerifyUser(user.user_id)}
+                                className={`flex-1 bg-green-500 text-white px-4 py-2 rounded transition-colors ${
+                                  !user.adoption_validation || !viewedAssessments[user.user_id]
+                                    ? "opacity-50 cursor-not-allowed"
+                                    : "hover:bg-green-600"
+                                }`}
+                              >
+                                Verify
+                              </button>
+                              <button
+                                onClick={() => handleDeclineUserClick(user)}
+                                className="flex-1 bg-red-500 text-white px-4 py-2 rounded transition-colors hover:bg-red-600"
+                              >
+                                Decline
+                              </button>
+                            </div>
                             {!viewedAssessments[user.user_id] &&
                               user.adoption_validation && (
                                 <div className="text-xs text-yellow-600 mt-1">
@@ -813,6 +853,17 @@ export default function VetDashboard() {
             <PostPreviewModal
               post={selectedPost}
               onClose={() => setShowModal(false)}
+            />
+          )}
+          {showDeclineModal && userToDecline && (
+            <DeclineUserModal
+              isOpen={showDeclineModal}
+              onClose={() => {
+                setShowDeclineModal(false);
+                setUserToDecline(null);
+              }}
+              onConfirm={handleDeclineUser}
+              userName={userToDecline.full_name}
             />
           )}
         </main>

@@ -600,23 +600,29 @@ const ChatPage: React.FC = () => {
                   );
                 }
 
-                // Determine the display name for the other user
-                let displayName = otherUserInfo.name || "User";
+                // Determine the base display name for the other user (owner/adopter)
+                let baseDisplayName = otherUserInfo.name || "User";
                 
                 // If we have adopter_name and owner_name, show the appropriate one
                 if (convo.adopter_name && convo.owner_name) {
                   // Show the other person's name (not the current user's name)
                   if (user.email === convo.adopter_name) {
                     // Current user is adopter, show owner name
-                    displayName = convo.owner_name;
+                    baseDisplayName = convo.owner_name;
                   } else if (user.email === convo.owner_name) {
                     // Current user is owner, show adopter name
-                    displayName = convo.adopter_name;
+                    baseDisplayName = convo.adopter_name;
                   } else {
                     // Fallback to other user info
-                    displayName = otherUserInfo.name || "User";
+                    baseDisplayName = otherUserInfo.name || "User";
                   }
                 }
+
+                // Compose final display name as \"Other Person · Pet\" when we have a pet name
+                const petNameForDisplay = convo.pet_name || otherUserInfo.name;
+                const combinedDisplayName = petNameForDisplay
+                  ? `${baseDisplayName} · ${petNameForDisplay}`
+                  : baseDisplayName;
 
                 const processedConvo = {
                   conversation_id: convo.id,
@@ -637,9 +643,9 @@ const ChatPage: React.FC = () => {
                       ? lastMessage[0].sender_id
                       : null,
                   other_user_id: otherUserId,
-                  other_user_name: displayName,
+                  other_user_name: combinedDisplayName,
                   other_user_avatar: otherUserInfo.avatar,
-                  pet_name: convo.pet_name || otherUserInfo.name,
+                  pet_name: petNameForDisplay,
                   post_id: convo.post_id,
                   adopter_name: convo.adopter_name,
                   owner_name: convo.owner_name,
@@ -893,6 +899,10 @@ const ChatPage: React.FC = () => {
         }
       }
 
+      // Prepare a combined label for the other participant: \"Other Person · Pet\"
+      const otherParticipantLabel =
+        otherUserName && petName ? `${otherUserName} · ${petName}` : otherUserName;
+
       // Format messages with sender info
       const formattedMessages = await Promise.all(
         data.map(async (msg: Message) => {
@@ -911,8 +921,8 @@ const ChatPage: React.FC = () => {
             };
           }
 
-          // For the other person's messages, show their actual name (adopter/owner)
-          if (otherUserName) {
+          // For the other person's messages, show \"Other Person · Pet\" where possible
+          if (otherParticipantLabel) {
             return {
               id: msg.id,
               conversation_id: msg.conversation_id,
@@ -921,7 +931,7 @@ const ChatPage: React.FC = () => {
               created_at: msg.created_at,
               is_read: msg.is_read,
               image_url: msg.image_url,
-              sender_name: otherUserName,
+              sender_name: otherParticipantLabel,
               sender_avatar: null,
             };
           }
@@ -1555,29 +1565,45 @@ const ChatPage: React.FC = () => {
             // Format the new message with sender info
             const formattedMessage = { ...newMessage };
             if (newMessage.sender_id === user.id) {
+              // Always label your own messages as \"You\"
               formattedMessage.sender_name = "You";
               formattedMessage.sender_avatar = null;
             } else {
-              // Get the other user's name from the conversation data
-              const currentConversation = conversations.find(c => c.conversation_id === conversationId);
-              if (currentConversation && currentConversation.adopter_name && currentConversation.owner_name) {
-                // Determine which name to show based on who sent the message
+              // Get the other participant and pet from the current conversation
+              const currentConversation = conversations.find(
+                (c) => c.conversation_id === conversationId
+              );
+
+              if (
+                currentConversation &&
+                currentConversation.adopter_name &&
+                currentConversation.owner_name
+              ) {
+                // Determine which base name to show based on the viewer's role
+                let baseName: string;
                 if (user.email === currentConversation.adopter_name) {
-                  // Current user is adopter, show owner name for other person's messages
-                  formattedMessage.sender_name = currentConversation.owner_name;
+                  // Viewer is adopter -> show owner name
+                  baseName = currentConversation.owner_name;
                 } else if (user.email === currentConversation.owner_name) {
-                  // Current user is owner, show adopter name for other person's messages
-                  formattedMessage.sender_name = currentConversation.adopter_name;
+                  // Viewer is owner -> show adopter name
+                  baseName = currentConversation.adopter_name;
                 } else {
-                  // Fallback to getUserInfo
+                  // Fallback to getUserInfo if we can't match roles
               const senderInfo = await getUserInfo(newMessage.sender_id);
-              formattedMessage.sender_name = senderInfo.name;
+                  baseName = senderInfo.name;
                 }
+
+                const petNameForLabel = currentConversation.pet_name;
+                formattedMessage.sender_name =
+                  petNameForLabel && baseName
+                    ? `${baseName} · ${petNameForLabel}`
+                    : baseName;
               } else {
                 // Fallback to getUserInfo if conversation data not available
                 const senderInfo = await getUserInfo(newMessage.sender_id);
                 formattedMessage.sender_name = senderInfo.name;
               }
+
               formattedMessage.sender_avatar = null;
             }
             setMessages((prevMessages) => [...prevMessages, formattedMessage]);

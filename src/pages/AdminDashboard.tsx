@@ -891,7 +891,17 @@ const PostManagement = () => {
 
       let query = supabase.from("posts").select("*");
       if (filter !== "all") {
-        query = query.eq("status", filter);
+        if (filter === "adopted") {
+          query = query.in("status", ["adopted", "Adopted"]);
+        } else if (filter === "approved") {
+          query = query.in("status", ["approved", "Approved"]);
+        } else if (filter === "pending") {
+          query = query.in("status", ["pending", "Pending"]);
+        } else if (filter === "rejected") {
+          query = query.in("status", ["rejected", "Rejected"]);
+        } else {
+          query = query.eq("status", filter);
+        }
       }
       const { data: postsData, error: postsError } = await query;
 
