@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "../supabase-client";
 import { toast } from "react-hot-toast";
+import { FaFilter, FaTimes } from "react-icons/fa";
+// REMOVED: import { useMediaQuery } from "react-responsive";
 
 interface AdoptedRecord {
   post_id: number;
@@ -338,11 +340,96 @@ export default function AdoptionManagement() {
   ];
   // --- FAKE DATA END ---
 
-  return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Adoption Management</h1>
+  // Filters state
+  const [filters, setFilters] = useState({
+    adopter: "",
+    postName: "",
+    breed: "",
+    adoptedAfter: "",
+    adoptedBefore: ""
+  });
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  // REMOVED: const isMobile = window.innerWidth < 1024;
+
+  // Filtering logic
+  const filteredRecords = fakeRecords.filter((rec) => {
+    let match = true;
+    if (filters.adopter && !(rec.adopter_name?.toLowerCase().includes(filters.adopter.toLowerCase()))) match = false;
+    if (filters.postName && !(rec.post_name?.toLowerCase().includes(filters.postName.toLowerCase()))) match = false;
+    if (filters.breed && !(rec.breed?.toLowerCase().includes(filters.breed.toLowerCase()))) match = false;
+    if (filters.adoptedAfter && new Date(rec.adopted_at || 0) < new Date(filters.adoptedAfter)) match = false;
+    if (filters.adoptedBefore && new Date(rec.adopted_at || 0) > new Date(filters.adoptedBefore)) match = false;
+    return match;
+  });
+
+  // Filter UI component
+  function FilterControls({ onClose }: { onClose?: () => void }) {
+    return (
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-violet-700 mb-1">Adopter Name</label>
+          <input type="text" value={filters.adopter} onChange={e => setFilters(f => ({...f, adopter: e.target.value}))} className="w-full px-4 py-2 border rounded focus:ring-violet-400" placeholder="e.g., John" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-violet-700 mb-1">Pet Name</label>
+          <input type="text" value={filters.postName} onChange={e => setFilters(f => ({...f, postName: e.target.value}))} className="w-full px-4 py-2 border rounded focus:ring-violet-400" placeholder="e.g., Luna" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-violet-700 mb-1">Breed</label>
+          <input type="text" value={filters.breed} onChange={e => setFilters(f => ({...f, breed: e.target.value}))} className="w-full px-4 py-2 border rounded focus:ring-violet-400" placeholder="e.g., Persian" />
+        </div>
+        <div className="flex gap-2">
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-violet-700 mb-1">Adopted After</label>
+            <input type="date" value={filters.adoptedAfter} onChange={e => setFilters(f => ({...f, adoptedAfter: e.target.value}))} className="w-full px-4 py-2 border rounded focus:ring-violet-400"/>
+          </div>
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-violet-700 mb-1">Adopted Before</label>
+            <input type="date" value={filters.adoptedBefore} onChange={e => setFilters(f => ({...f, adoptedBefore: e.target.value}))} className="w-full px-4 py-2 border rounded focus:ring-violet-400"/>
+          </div>
+        </div>
+        {onClose && <button className="w-full bg-violet-600 text-white px-4 py-3 rounded mt-4 font-semibold hover:bg-violet-700 transition" onClick={onClose} type="button">Apply</button>}
       </div>
+    );
+  }
+
+  return (
+    <div className="p-6 relative">
+      {/* Mobile Filter Button */}
+      <button
+        className="lg:hidden fixed bottom-6 right-6 z-40 p-4 bg-gradient-to-br from-indigo-500 to-purple-500 text-white rounded-full shadow-lg hover:scale-110 active:scale-100 transition-transform"
+        onClick={() => setDrawerOpen(true)}
+        aria-label="Open filters"
+      >
+        <FaFilter className="w-5 h-5" />
+      </button>
+      {/* Mobile Drawer + Overlay */}
+      {drawerOpen && (
+        <div>
+          <div
+            className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40"
+            onClick={() => setDrawerOpen(false)}
+          />
+          <aside className={`fixed top-0 right-0 h-full w-80 max-w-[90vw] bg-white rounded-l-2xl shadow-2xl z-50 p-8 pt-10 transition-transform duration-300 ease-in-out ${drawerOpen ? 'translate-x-0' : 'translate-x-full'}`}
+            style={{ boxShadow: '0 6px 32px 0 rgba(80,64,187,0.18)' }}
+            role="dialog" aria-modal="true"
+          >
+            <div className="flex justify-between items-center mb-4">
+              <span className="text-2xl font-bold text-violet-800">Filters</span>
+              <button className="p-2 -mr-2 text-slate-600 hover:text-slate-800" aria-label="Close filters" onClick={() => setDrawerOpen(false)}>
+                <FaTimes className="w-6 h-6" />
+              </button>
+            </div>
+            <FilterControls onClose={() => setDrawerOpen(false)} />
+          </aside>
+        </div>
+      )}
+
+      {/* Desktop Filter Bar */}
+      <div className="hidden lg:block mb-4 sticky top-0 z-20 bg-white p-4 rounded-2xl shadow-md border border-gray-50">
+        <FilterControls />
+      </div>
+      {/* Table as before, but with filteredRecords */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
@@ -350,10 +437,11 @@ export default function AdoptionManagement() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pet</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Adopter</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Adopted On</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Breed</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {fakeRecords.map((r) => (
+            {filteredRecords.map((r) => (
               <tr key={r.post_id}>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="font-medium text-gray-900">{r.post_name} <span className="text-xs text-gray-500 font-normal">({r.breed})</span></div>
@@ -364,13 +452,19 @@ export default function AdoptionManagement() {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {new Date(r.adopted_at).toLocaleDateString(undefined, {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
+                    year: 'numeric', month: 'long', day: 'numeric',
                   })}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  {r.breed}
                 </td>
               </tr>
             ))}
+            {filteredRecords.length === 0 && (
+              <tr>
+                <td colSpan={4} className="px-6 py-12 text-center text-gray-400">No adoption records found matching your filter.</td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
