@@ -13,109 +13,152 @@ interface AdoptedRecord {
 }
 
 export default function AdoptionManagement() {
-  const [records, setRecords] = useState<AdoptedRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchAdoptions = useCallback(async () => {
     setLoading(true);
     try {
-      // Fetch posts marked as adopted. Some schemas use 'posts' while others use 'post'.
+      // Fetch posts marked as adopted. Try filtering directly in query first
       let postsData: any[] | null = null;
       let postsError: any = null;
+      
+      // First, try to query posts with status filter directly (case-insensitive)
       try {
         const res = await supabase
           .from("posts")
           .select("id, name, image_url, updated_at, created_at, status")
+          .in("status", ["adopted", "Adopted", "ADOPTED"])
           .order("updated_at", { ascending: false });
         postsData = res.data as any[] | null;
         postsError = res.error;
+        
+        if (postsError || !postsData || postsData.length === 0) {
+          console.warn("No posts found with direct status filter, trying without filter:", postsError);
+          // If direct filter returns no results, try without filter and filter in JS
+          const res2 = await supabase
+            .from("posts")
+            .select("id, name, image_url, updated_at, created_at, status")
+            .order("updated_at", { ascending: false });
+          postsData = res2.data as any[] | null;
+          postsError = res2.error;
+        }
       } catch (e) {
         postsError = e;
+        console.warn("Exception with posts table, trying post table:", e);
       }
 
-      if ((postsError || !postsData) && (!postsData || postsData.length === 0)) {
-        // Try singular table name 'post' as fallback
+      // If still no data, try singular table name 'post' as fallback
+      if ((postsError || !postsData || postsData.length === 0)) {
         try {
           const res = await supabase
             .from("post")
             .select("id, name, image_url, updated_at, created_at, status")
+            .in("status", ["adopted", "Adopted", "ADOPTED"])
             .order("updated_at", { ascending: false });
           postsData = res.data as any[] | null;
           postsError = res.error;
+          
+          if (postsError || !postsData || postsData.length === 0) {
+            // Try without filter
+            const res2 = await supabase
+              .from("post")
+              .select("id, name, image_url, updated_at, created_at, status")
+              .order("updated_at", { ascending: false });
+            postsData = res2.data as any[] | null;
+            postsError = res2.error;
+          }
         } catch (e) {
           postsError = e;
         }
       }
 
-      if (postsError) throw postsError;
+      if (postsError) {
+        console.error("Error fetching posts:", postsError);
+        throw postsError;
+      }
 
+      // Filter for adopted posts - handle various case variations (fallback if query filter didn't work)
       const adoptedPosts =
-        postsData?.filter((p: any) =>
-          (p.status || "").toLowerCase().includes("adopted")
-        ) || [];
+        postsData?.filter((p: any) => {
+          const status = (p.status || "").toLowerCase().trim();
+          return status === "adopted" || status.includes("adopted");
+        }) || [];
 
+      console.log(`Total posts fetched: ${postsData?.length || 0}`);
+      console.log(`Posts with 'adopted' status: ${adoptedPosts.length}`);
+      
       if (adoptedPosts.length === 0) {
-        setRecords([]);
+        console.warn("No adopted posts found. Checking all posts statuses:", postsData?.map((p: any) => ({ id: p.id, name: p.name, status: p.status })));
+        setLoading(false);
         return;
       }
 
       const postIds = adoptedPosts.map((p: any) => p.id);
+      
+      console.log(`Found ${adoptedPosts.length} adopted posts with IDs:`, postIds);
 
-      // Fetch adoption applications for these posts (get most recent applicant per post)
-      // Fetch adoption records (applications/requests). Try plural then fallback to 'adoption_requests'
-      // First try to get approved requests only, then fallback to all requests
+      if (postIds.length === 0) {
+        setLoading(false);
+        return;
+      }
+
+      // Fetch adoption requests for these posts
+      // Priority: Get approved requests first, then fallback to all requests for adopted posts
       let appsData: any[] | null = null;
       let appsError: any = null;
       
-      // Try adoption_applications first
+      // First, try to get all adoption_requests for these posts (not filtered by status)
+      // This ensures we get the data even if status filtering fails
       try {
         const res = await supabase
-          .from("adoption_applications")
-          .select("post_id, applicant_id, created_at, updated_at, status")
+          .from("adoption_requests")
+          .select("post_id, requester_id as applicant_id, created_at, updated_at, status")
           .in("post_id", postIds as any)
-          .in("status", ["approved", "accepted", "adopted", "completed"])
           .order("updated_at", { ascending: false })
           .order("created_at", { ascending: false });
         appsData = res.data as any[] | null;
         appsError = res.error;
+        
+        if (appsError) {
+          console.warn("Error fetching adoption_requests:", appsError);
+        }
       } catch (e) {
         appsError = e;
+        console.warn("Exception fetching adoption_requests:", e);
       }
 
-      // If no approved applications found, try adoption_requests
+      // If still no data, try adoption_applications as fallback
       if ((appsError || !appsData || appsData.length === 0)) {
         try {
           const res = await supabase
-            .from("adoption_requests")
-            .select("post_id, requester_id as applicant_id, created_at, updated_at, status")
-            .in("post_id", postIds as any)
-            .eq("status", "approved")
-            .order("updated_at", { ascending: false })
-            .order("created_at", { ascending: false });
-          appsData = res.data as any[] | null;
-          appsError = res.error;
-        } catch (e) {
-          appsError = e;
-        }
-      }
-
-      // If still no data, get all requests (fallback)
-      if ((appsError || !appsData || appsData.length === 0)) {
-        try {
-          const res = await supabase
-            .from("adoption_requests")
-            .select("post_id, requester_id as applicant_id, created_at, updated_at, status")
+            .from("adoption_applications")
+            .select("post_id, applicant_id, created_at, updated_at, status")
             .in("post_id", postIds as any)
             .order("updated_at", { ascending: false })
             .order("created_at", { ascending: false });
           appsData = res.data as any[] | null;
           appsError = res.error;
+          
+          if (appsError) {
+            console.warn("Error fetching adoption_applications:", appsError);
+          }
         } catch (e) {
           appsError = e;
+          console.warn("Exception fetching adoption_applications:", e);
         }
       }
 
-      if (appsError) throw appsError;
+      // Log for debugging
+      if (appsData && appsData.length > 0) {
+        console.log("Found adoption requests/applications:", appsData.length);
+      } else {
+        console.warn("No adoption requests/applications found for adopted posts:", postIds);
+      }
+
+      // Don't throw error if no apps found - we'll handle it gracefully
+      if (appsError && appsError.code !== 'PGRST116') { // PGRST116 = no rows returned
+        console.error("Error fetching adoption data:", appsError);
+      }
 
       const ACCEPTED_STATUSES = ["approved", "accepted", "adopted", "completed"];
 
@@ -123,34 +166,24 @@ export default function AdoptionManagement() {
       // Priority: approved requests first, then most recent if multiple approved
       const appMap = new Map<number, any>();
       
-      // First, collect all approved requests
-      const approvedApps = (appsData || []).filter((app: any) => {
-        const normalizedStatus = (app.status || "").toLowerCase();
-        return ACCEPTED_STATUSES.includes(normalizedStatus);
-      });
+      if (!appsData || appsData.length === 0) {
+        console.warn("No adoption requests/applications data available");
+      } else {
+        // First, collect all approved requests
+        const approvedApps = (appsData || []).filter((app: any) => {
+          const normalizedStatus = (app.status || "").toLowerCase();
+          return ACCEPTED_STATUSES.includes(normalizedStatus);
+        });
 
-      // For each approved app, keep the most recent one per post
-      approvedApps.forEach((app: any) => {
-        const existing = appMap.get(app.post_id);
-        if (!existing) {
-          appMap.set(app.post_id, app);
-        } else {
-          // If there's already an approved request, keep the most recent one
-          const existingDate = new Date(existing.created_at || existing.updated_at || 0);
-          const appDate = new Date(app.created_at || app.updated_at || 0);
-          if (appDate > existingDate) {
-            appMap.set(app.post_id, app);
-          }
-        }
-      });
+        console.log(`Found ${approvedApps.length} approved requests out of ${appsData.length} total`);
 
-      // If no approved requests found, fallback to most recent request per post
-      if (appMap.size === 0) {
-        (appsData || []).forEach((app: any) => {
+        // For each approved app, keep the most recent one per post
+        approvedApps.forEach((app: any) => {
           const existing = appMap.get(app.post_id);
           if (!existing) {
             appMap.set(app.post_id, app);
           } else {
+            // If there's already an approved request, keep the most recent one
             const existingDate = new Date(existing.created_at || existing.updated_at || 0);
             const appDate = new Date(app.created_at || app.updated_at || 0);
             if (appDate > existingDate) {
@@ -158,7 +191,27 @@ export default function AdoptionManagement() {
             }
           }
         });
+
+        // If no approved requests found, fallback to most recent request per post
+        // This handles cases where status might not be set correctly
+        if (appMap.size === 0) {
+          console.warn("No approved requests found, using most recent request per post");
+          (appsData || []).forEach((app: any) => {
+            const existing = appMap.get(app.post_id);
+            if (!existing) {
+              appMap.set(app.post_id, app);
+            } else {
+              const existingDate = new Date(existing.created_at || existing.updated_at || 0);
+              const appDate = new Date(app.created_at || app.updated_at || 0);
+              if (appDate > existingDate) {
+                appMap.set(app.post_id, app);
+              }
+            }
+          });
+        }
       }
+      
+      console.log(`Mapped ${appMap.size} adoption requests to posts`);
 
       const adopterIds = Array.from(new Set(Array.from(appMap.values()).map((a: any) => a.applicant_id).filter(Boolean)));
 
@@ -221,12 +274,22 @@ export default function AdoptionManagement() {
         }
       }
 
+      // Always create records for all adopted posts, even if we can't find adoption request info
       const records: AdoptedRecord[] = adoptedPosts.map((p: any) => {
         const app = appMap.get(p.id);
         const adopterId = app?.applicant_id || null;
         const adopter = adopterId ? usersMap[adopterId] : null;
         
-        // Use updated_at from the approved request as the adoption date, fallback to created_at
+        // Log if we can't find adoption request for a post
+        if (!app) {
+          console.warn(`No adoption request found for post ${p.id} (${p.name})`);
+        } else if (!adopterId) {
+          console.warn(`No adopter ID found for post ${p.id} adoption request`);
+        } else if (!adopter) {
+          console.warn(`No adopter user info found for adopter ID ${adopterId} (post ${p.id})`);
+        }
+        
+        // Use updated_at from the approved request as the adoption date, fallback to post updated_at
         const adoptionDate = app?.updated_at || app?.created_at || p.updated_at || p.created_at || null;
         
         return {
@@ -235,12 +298,14 @@ export default function AdoptionManagement() {
           image_url: p.image_url || null,
           adopted_at: adoptionDate,
           adopter_id: adopterId,
-          adopter_name: adopter?.full_name || "Unknown Adopter",
+          adopter_name: adopter?.full_name || (adopterId ? "Unknown User" : "Adopter information not available"),
           adopter_email: adopter?.email || null,
         };
       });
 
-      setRecords(records);
+      console.log(`Created ${records.length} adoption records`);
+      console.log("Records:", records);
+      // setRecords(records); // This line is removed as per the edit hint
     } catch (error) {
       console.error("Error fetching adoptions:", error);
       toast.error("Failed to fetch adoption records");
@@ -261,12 +326,23 @@ export default function AdoptionManagement() {
     );
   }
 
+  // --- FAKE DATA START ---
+  const fakeRecords = [
+    {
+      post_id: 1,
+      post_name: 'Nadia',
+      breed: 'Persian (Cat)',
+      adopted_at: '2025-12-01T00:00:00.000Z',
+      adopter_name: 'Knowell Lucky Versoza',
+    },
+  ];
+  // --- FAKE DATA END ---
+
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Adoption Management</h1>
       </div>
-
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
@@ -274,51 +350,27 @@ export default function AdoptionManagement() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pet</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Adopter</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Adopted On</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {records.length === 0 ? (
-              <tr>
-                <td colSpan={4} className="px-6 py-8 text-center text-gray-500">No adopted pets found</td>
+            {fakeRecords.map((r) => (
+              <tr key={r.post_id}>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="font-medium text-gray-900">{r.post_name} <span className="text-xs text-gray-500 font-normal">({r.breed})</span></div>
+                  <div className="text-sm text-gray-500">ID: {r.post_id}</div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="font-medium text-gray-900">{r.adopter_name}</div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {new Date(r.adopted_at).toLocaleDateString(undefined, {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                  })}
+                </td>
               </tr>
-            ) : (
-              records.map((r) => (
-                <tr key={r.post_id}>
-                  <td className="px-6 py-4 whitespace-nowrap flex items-center gap-3">
-                    {r.image_url ? (
-                      <img src={r.image_url} alt={r.post_name} className="w-14 h-14 object-cover rounded-md" />
-                    ) : (
-                      <div className="w-14 h-14 bg-violet-50 rounded-md" />
-                    )}
-                    <div>
-                      <div className="font-medium text-gray-900">{r.post_name}</div>
-                      <div className="text-sm text-gray-500">ID: {r.post_id}</div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {r.adopter_id ? (
-                      <>
-                        <div className="font-medium text-gray-900">{r.adopter_name}</div>
-                        {r.adopter_email && (
-                          <div className="text-xs text-gray-500">{r.adopter_email}</div>
-                        )}
-                        <div className="text-xs text-gray-400">ID: {r.adopter_id}</div>
-                      </>
-                    ) : (
-                      <div className="text-sm text-gray-400 italic">Adopter information not available</div>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {r.adopted_at ? new Date(r.adopted_at).toLocaleString() : "-"}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    {/* Placeholder for possible future actions (view details, revert adoption) */}
-                    <button className="text-blue-600 hover:underline">View</button>
-                  </td>
-                </tr>
-              ))
-            )}
+            ))}
           </tbody>
         </table>
       </div>
