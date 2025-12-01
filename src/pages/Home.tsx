@@ -147,7 +147,7 @@ const Home = () => {
       {/* Filter Toggle Button (Mobile) */}
       <button
         onClick={() => setIsSidebarOpen(true)}
-        className="lg:hidden fixed bottom-6 right-6 z-30 p-4 bg-gradient-to-br from-indigo-500 to-purple-500 text-white rounded-full shadow-lg hover:scale-110 active:scale-100 transition-transform"
+        className="lg:hidden fixed bottom-6 right-6 z-40 p-4 bg-gradient-to-br from-indigo-500 to-purple-500 text-white rounded-full shadow-lg hover:scale-110 active:scale-100 transition-transform"
         aria-label="Open filters"
       >
         <FaFilter className="w-5 h-5" />
@@ -155,23 +155,183 @@ const Home = () => {
 
       {/* Overlay for mobile sidebar */}
       {isSidebarOpen && (
-        <div
-          className="lg:hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40"
-          onClick={() => setIsSidebarOpen(false)}
-        />
+        <div>
+          <div
+            className="lg:hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40"
+            onClick={() => setIsSidebarOpen(false)}
+          />
+          {/* Sidebar - now rendered above overlay with higher z-index */}
+          <aside
+            className={`fixed top-0 right-0 h-full w-72 max-w-[85vw] bg-white/95 rounded-l-2xl shadow-2xl z-50 p-6 transition-transform duration-300 ease-in-out
+            ${isSidebarOpen ? 'translate-x-0' : 'translate-x-full'}
+            lg:sticky lg:h-auto lg:shadow-md lg:rounded-2xl lg:top-24 lg:self-start`}
+            style={{ boxShadow: '0 6px 32px 0 rgba(80,64,187,0.15)' }}
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="flex justify-between items-center mb-4 lg:mb-0">
+              <h3 className="text-xl font-bold text-violet-800 font-['Quicksand']">
+                Find Your Pal
+              </h3>
+              <button
+                onClick={() => setIsSidebarOpen(false)}
+                className="lg:hidden p-2 -mr-2 text-slate-600 hover:text-slate-800"
+                aria-label="Close filters"
+              >
+                <FaTimes className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 lg:mt-4 overflow-y-auto max-h-[90vh] pr-1">
+              {/* Filter by Pet Type */}
+              <div>
+                <label className="block text-sm font-medium text-violet-700 mb-2">
+                  Pet Type
+                </label>
+                <select
+                  name="petType"
+                  value={filters.petType}
+                  onChange={handleFilterChange}
+                  className="w-full px-4 py-2 bg-violet-50 border-none rounded-xl text-violet-800 focus:ring-2 focus:ring-violet-400 transition appearance-none"
+                >
+                  <option value="">Any Type</option>
+                  <option value="Dog">Dog</option>
+                  <option value="Cat">Cat</option>
+                  <option value="Rabbit">Rabbit</option>
+                  <option value="Bird">Bird</option>
+                  <option value="Guinea Pig">Guinea Pig</option>
+                  <option value="Hamster">Hamster</option>
+                </select>
+              </div>
+              {/* Search by Breed */}
+              <div>
+                <label className="block text-sm font-medium text-violet-700 mb-2">
+                  Breed
+                </label>
+                {(filters.petType && BREEDS_MAP[filters.petType]) ? (
+                  <select
+                    name="breed"
+                    value={filters.breed}
+                    onChange={handleFilterChange}
+                    className="w-full px-4 py-2 bg-violet-50 border-none rounded-xl text-violet-800 focus:ring-2 focus:ring-violet-400 transition appearance-none"
+                  >
+                    <option value="">Any Breed</option>
+                    {BREEDS_MAP[filters.petType].map((breed) => (
+                      <option value={breed} key={breed}>{breed}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    name="breed"
+                    value=""
+                    placeholder="Select a pet type first"
+                    disabled
+                    className="w-full px-4 py-2 bg-gray-100 border-none rounded-xl text-violet-400"
+                    readOnly
+                  />
+                )}
+              </div>
+
+              {/* Search by Location */}
+              <div>
+                <label className="block text-sm font-medium text-violet-700 mb-2">
+                  Location
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-violet-400">
+                    <FaMapMarkerAlt />
+                  </span>
+                  <input
+                    type="text"
+                    name="location"
+                    value={filters.location}
+                    onChange={handleFilterChange}
+                    className="w-full pl-10 pr-4 py-2 bg-violet-50 border-none rounded-xl text-violet-800 focus:ring-2 focus:ring-violet-400 transition"
+                    placeholder="e.g., New York"
+                  />
+                </div>
+              </div>
+
+              {/* Filter by Size */}
+              <div>
+                <label className="block text-sm font-medium text-violet-700 mb-2">
+                  Size
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-violet-400">
+                    <FaRuler />
+                  </span>
+                  <select
+                    name="size"
+                    value={filters.size}
+                    onChange={handleFilterChange}
+                    className="w-full pl-10 pr-4 py-2 bg-violet-50 border-none rounded-xl text-violet-800 focus:ring-2 focus:ring-violet-400 transition appearance-none"
+                  >
+                    <option value="">Any Size</option>
+                    <option value="Small">Small</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Large">Large</option>
+                    <option value="Extra Large">Extra Large</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Filter by Age */}
+              <div>
+                <label className="block text-sm font-medium text-violet-700 mb-2">
+                  Age (years)
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    name="ageMin"
+                    value={filters.ageMin}
+                    onChange={handleFilterChange}
+                    className="w-full px-4 py-2 bg-violet-50 border-none rounded-xl text-violet-800 focus:ring-2 focus:ring-violet-400 transition"
+                    placeholder="Min"
+                    min="0"
+                  />
+                  <input
+                    type="number"
+                    name="ageMax"
+                    value={filters.ageMax}
+                    onChange={handleFilterChange}
+                    className="w-full px-4 py-2 bg-violet-50 border-none rounded-xl text-violet-800 focus:ring-2 focus:ring-violet-400 transition"
+                    placeholder="Max"
+                    min="0"
+                  />
+                </div>
+              </div>
+
+              {/* Filter by Vaccination Proof */}
+              <div>
+                <label className="block text-sm font-medium text-violet-700 mb-2">
+                  Vaccination Proof
+                </label>
+                <select
+                  name="vaccinationProof"
+                  value={filters.vaccinationProof}
+                  onChange={handleFilterChange}
+                  className="w-full px-4 py-2 bg-violet-50 border-none rounded-xl text-violet-800 focus:ring-2 focus:ring-violet-400 transition appearance-none"
+                >
+                  <option value="">All</option>
+                  <option value="with">With Proof</option>
+                  <option value="without">Without Proof</option>
+                </select>
+              </div>
+            </div>
+          </aside>
+        </div>
       )}
 
+      {/* Main Desktop Layout */}
       <div className="lg:grid lg:grid-cols-[288px_1fr] lg:gap-8">
-        {/* Sidebar */}
+        {/* Sidebar for desktop only! */}
         <aside
-          className={`
-            ${
-              isSidebarOpen ? "translate-x-0" : "translate-x-full"
-            } lg:translate-x-0
-            fixed top-0 right-0 h-full w-72 max-w-[85vw] bg-white/10 backdrop-blur-sm shadow-2xl z-30 p-6 transition-transform duration-300 ease-in-out
-            lg:sticky lg:h-auto lg:shadow-md lg:rounded-2xl lg:top-24 lg:self-start
-          `}
+          className="hidden lg:block bg-white/10 backdrop-blur-sm shadow-md rounded-2xl sticky h-auto top-24 self-start w-72 max-w-[85vw] p-6"
         >
+          {/* Filter Controls (same as above, repeat or extract component if possible) */}
           <div className="flex justify-between items-center mb-4 lg:mb-0">
             <h3 className="text-xl font-bold text-violet-800 font-['Quicksand']">
               Find Your Pal
@@ -185,7 +345,7 @@ const Home = () => {
             </button>
           </div>
 
-          <div className="space-y-4 lg:mt-4">
+          <div className="space-y-4 lg:mt-4 overflow-y-auto max-h-[90vh] pr-1">
             {/* Filter by Pet Type */}
             <div>
               <label className="block text-sm font-medium text-violet-700 mb-2">
