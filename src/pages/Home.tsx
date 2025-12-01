@@ -1,7 +1,6 @@
 import { PostList } from "../components/PostList";
 import {
   FaPaw,
-  FaSearch,
   FaMapMarkerAlt,
   FaRuler,
   FaFilter,
@@ -10,6 +9,27 @@ import {
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "../supabase-client";
 import { Post } from "../components/PostList";
+
+const BREEDS_MAP: Record<string, string[]> = {
+  Dog: [
+    "Golden Retriever", "Labrador", "Bulldog", "Beagle", "Poodle", "German Shepherd", "Shih Tzu", "Dachshund", "Other"
+  ],
+  Cat: [
+    "Persian", "Maine Coon", "Siamese", "British Shorthair", "Sphynx", "Ragdoll", "Bengal", "Other"
+  ],
+  Rabbit: [
+    "Netherland Dwarf", "Mini Lop", "Holland Lop", "Lionhead", "Flemish Giant", "Dutch", "Other"
+  ],
+  Bird: [
+    "Parakeet", "Cockatiel", "Canary", "Finch", "Parrot", "Lovebird", "Other"
+  ],
+  "Guinea Pig": [
+    "American", "Abyssinian", "Peruvian", "Silkie", "Teddy", "Texel", "Other"
+  ],
+  Hamster: [
+    "Syrian", "Dwarf Campbell", "Winter White", "Roborovski", "Other"
+  ],
+};
 
 const Home = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -191,19 +211,29 @@ const Home = () => {
               <label className="block text-sm font-medium text-violet-700 mb-2">
                 Breed
               </label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-violet-400">
-                  <FaSearch />
-                </span>
-                <input
-                  type="text"
+              {(filters.petType && BREEDS_MAP[filters.petType]) ? (
+                <select
                   name="breed"
                   value={filters.breed}
                   onChange={handleFilterChange}
-                  className="w-full pl-10 pr-4 py-2 bg-violet-50 border-none rounded-xl text-violet-800 focus:ring-2 focus:ring-violet-400 transition"
-                  placeholder="e.g., Golden Retriever"
+                  className="w-full px-4 py-2 bg-violet-50 border-none rounded-xl text-violet-800 focus:ring-2 focus:ring-violet-400 transition appearance-none"
+                >
+                  <option value="">Any Breed</option>
+                  {BREEDS_MAP[filters.petType].map((breed) => (
+                    <option value={breed} key={breed}>{breed}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  name="breed"
+                  value=""
+                  placeholder="Select a pet type first"
+                  disabled
+                  className="w-full px-4 py-2 bg-gray-100 border-none rounded-xl text-violet-400"
+                  readOnly
                 />
-              </div>
+              )}
             </div>
 
             {/* Search by Location */}

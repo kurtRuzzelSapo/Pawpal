@@ -198,10 +198,25 @@ const LandingPage = () => {
                 ster Happiness
               </h1>
             </div>
-            <p className="text-base sm:text-xl text-white/90 mb-8 max-w-xs sm:max-w-2xl animate-fade-in delay-500">
-              We Are well-equipped and well-prepared to protect your heath and
-              hygiene while serve you. Our preparations include-
+            <p className="text-base sm:text-xl text-white/90 mb-6 max-w-xs sm:max-w-2xl animate-fade-in delay-500">
+              Your trusted platform for finding loving homes and perfect companions. 
+              We connect caring pet owners with responsible adopters through a safe, 
+              verified adoption process.
             </p>
+            <div className="flex flex-wrap justify-center gap-4 sm:gap-6 mb-8 text-sm sm:text-base animate-fade-in delay-600">
+              <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full">
+                <span className="text-emerald-300">✓</span>
+                <span className="text-white/90">Verified Pet Profiles</span>
+              </div>
+              <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full">
+                <span className="text-emerald-300">✓</span>
+                <span className="text-white/90">Vet-Approved Listings</span>
+              </div>
+              <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full">
+                <span className="text-emerald-300">✓</span>
+                <span className="text-white/90">Safe Adoption Process</span>
+              </div>
+            </div>
             <div className="flex flex-col sm:flex-row gap-4 items-center justify-center animate-fade-in delay-700">
               <button
                 onClick={handleGetStarted}
@@ -512,7 +527,9 @@ const LandingPage = () => {
                   </a>
 
                   <a
-                    href="#"
+                    href="https://www.facebook.com/PawPaI2025"
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="flex items-center space-x-4 p-4 bg-white/70 rounded-xl border border-indigo-100 hover:bg-white hover:shadow-md transition-all duration-300 group"
                   >
                     <div className="bg-green-100 p-3 rounded-full group-hover:bg-green-200 transition-colors">
