@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { FaPaw, FaLock, FaEnvelope, FaEye, FaEyeSlash } from "react-icons/fa";
 import { useAuth } from "../context/AuthContext";
+import { LoginErrorModal } from "../components/LoginErrorModal";
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -12,6 +13,7 @@ const LoginPage = () => {
   const [declinedReason, setDeclinedReason] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,6 +26,7 @@ const LoginPage = () => {
     if (!success) {
       setError(error || "Failed to sign in");
       setDeclinedReason(declinedReason || null);
+      setShowErrorModal(true);
       setLoading(false);
       return;
     }
@@ -141,17 +144,6 @@ const LoginPage = () => {
               </div>
             </div>
 
-            {error && (
-              <div className="text-red-600 text-sm p-3 bg-red-50 rounded-lg border border-red-200">
-                <div className="font-semibold mb-1">{error}</div>
-                {declinedReason && (
-                  <div className="mt-2 pt-2 border-t border-red-200">
-                    <div className="font-medium text-red-700 mb-1">Reason:</div>
-                    <div className="text-red-600">{declinedReason}</div>
-                  </div>
-                )}
-              </div>
-            )}
 
             <button
               type="submit"
@@ -200,6 +192,18 @@ const LoginPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Login Error Modal */}
+      <LoginErrorModal
+        isOpen={showErrorModal}
+        onClose={() => {
+          setShowErrorModal(false);
+          setError("");
+          setDeclinedReason(null);
+        }}
+        errorMessage={error}
+        declinedReason={declinedReason}
+      />
     </div>
   );
 };
