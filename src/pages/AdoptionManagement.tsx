@@ -335,6 +335,13 @@ export default function AdoptionManagement() {
       adopted_at: '2025-12-01T00:00:00.000Z',
       adopter_name: 'Knowell Lucky Versoza',
     },
+    {
+      post_id: 2,
+      post_name: 'Chelsea',
+      breed: 'Persian (Cat)',
+      adopted_at: '2025-12-02T00:00:00.000Z',
+      adopter_name: 'Joey De Guzman',
+    },
   ];
   // --- FAKE DATA END ---
 
