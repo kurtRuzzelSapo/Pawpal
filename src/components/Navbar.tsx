@@ -122,7 +122,8 @@ const Navbar = () => {
                 }`}
               >
                 <span className="mr-2.5 transition-transform duration-200 group-hover:scale-105">
-                  {item.icon}
+                  {/* Render the ChatBadge for the Chats (chat) nav item, icon for others */}
+                  {item.path === "/chat" ? <ChatBadge /> : item.icon}
                 </span>
                 <span className="font-['Inter'] font-medium">{item.label}</span>
                 {isActive(item.path) && (

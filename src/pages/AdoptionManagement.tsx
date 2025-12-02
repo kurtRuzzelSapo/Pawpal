@@ -338,7 +338,7 @@ export default function AdoptionManagement() {
     {
       post_id: 2,
       post_name: 'Chelsea',
-      breed: 'Persian (Cat)',
+      breed: 'Domestic Shorthair (Cat)',
       adopted_at: '2025-12-02T00:00:00.000Z',
       adopter_name: 'Joey De Guzman',
     },

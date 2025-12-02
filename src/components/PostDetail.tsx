@@ -865,7 +865,7 @@ export const PostDetail = ({ postId }: { postId: string }) => {
                 )}
 
                 {/* Message Button */}
-                {!isOwner && user && post.user_id && (
+                {!isOwner && user && post.user_id && requestStatus === "approved" && (
                   <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border border-violet-100 p-4 sm:p-6">
                     <div className="text-center">
                       <p className="text-sm text-gray-500 mb-4">

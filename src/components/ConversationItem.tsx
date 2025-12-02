@@ -38,14 +38,9 @@ export const ConversationItem: React.FC<ConversationItemProps> = ({
     }
   };
 
-  // Get display name using pet name if available
+  // Get display name - prioritize user name over pet name
   const getDisplayName = () => {
-    // Use pet_name if available
-    if (conversation.pet_name) {
-      return conversation.pet_name;
-    }
-
-    // Otherwise use other_user_name if it's not an email
+    // First, use other_user_name if it's available and not an email
     if (
       conversation.other_user_name &&
       !conversation.other_user_name.includes("@")
@@ -58,8 +53,13 @@ export const ConversationItem: React.FC<ConversationItemProps> = ({
       return conversation.title;
     }
 
+    // Use pet_name as a last resort (only if no user name available)
+    if (conversation.pet_name) {
+      return conversation.pet_name;
+    }
+
     // Final fallback
-    return "Pet";
+    return "User";
   };
 
   return (

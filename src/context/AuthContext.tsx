@@ -202,6 +202,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     adoptionValidation?: AdoptionValidation
   ): Promise<AuthResponse> => {
     try {
+      const cleanedEmail = email.toLowerCase().trim();
+      // CLEAN OUT DECLINED USER RECORD
+      await supabase
+        .from("users")
+        .delete()
+        .eq("email", cleanedEmail)
+        .eq("declined", true);
+
       const fullName = first_name && last_name 
         ? `${first_name} ${last_name}` 
         : email.split("@")[0];
@@ -364,8 +372,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   ): Promise<AuthResponse> => {
     try {
       console.log("Attempting to sign in...");
+      const cleanedEmail = email.toLowerCase().trim();
+      
+      // FIRST: Check if user is declined BEFORE attempting password authentication
+      // This way we can show the decline modal even if password is wrong
+      const { data: declinedCheck, error: declinedCheckError } = await supabase
+        .from("users")
+        .select("declined, declined_reason, user_id")
+        .eq("email", cleanedEmail)
+        .maybeSingle();
+
+      // If we found a declined user, return decline reason immediately
+      if (!declinedCheckError && declinedCheck && declinedCheck.declined === true) {
+        return {
+          success: false,
+          error: "Your account has been declined and you cannot log in.",
+          declinedReason: declinedCheck.declined_reason || null,
+        };
+      }
+
+      // Now attempt password authentication
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.toLowerCase(),
+        email: cleanedEmail,
         password,
       });
 
@@ -409,15 +437,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         };
       }
 
-      // Check if account is declined first
+      // Double-check declined status (in case it was set after the initial check)
       if (userData.declined === true) {
         await supabase.auth.signOut();
-        const reasonText = userData.declined_reason 
-          ? ` Reason: ${userData.declined_reason}`
-          : "";
         return {
           success: false,
-          error: `Your account has been declined and you cannot log in.${reasonText}`,
+          error: "Your account has been declined and you cannot log in.",
           declinedReason: userData.declined_reason || null,
         };
       }
