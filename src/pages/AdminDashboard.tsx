@@ -9,6 +9,19 @@ import { FaTimes, FaBars } from "react-icons/fa";
 import { useAuth } from "../context/AuthContext";
 import { SignOutConfirmationModal } from "../components/SignOutConfirmationModal";
 import React from "react";
+import {
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 
 interface Post {
   id: number;
@@ -46,6 +59,11 @@ interface DashboardStats {
   pendingPosts: number;
   totalUsers: number;
   totalVets: number;
+  adoptedPets: number;
+  rejectedPets: number;
+  approvedPets: number;
+  pendingPets: number;
+  availablePets: number;
   recentActivity: {
     type: string;
     description: string;
@@ -111,6 +129,11 @@ const DashboardHome = () => {
     pendingPosts: 0,
     totalUsers: 0,
     totalVets: 0,
+    adoptedPets: 0,
+    rejectedPets: 0,
+    approvedPets: 0,
+    pendingPets: 0,
+    availablePets: 0,
     recentActivity: [],
   });
   const [loading, setLoading] = useState(true);
@@ -147,11 +170,42 @@ const DashboardHome = () => {
         }
         setUserRole(userData.role);
         fetchStats(userData.role);
-        // Increment visit count if admin
+        // Fetch and increment visit count if admin
         if (userData.role === "admin") {
-          const { data, error } = await supabase.rpc("increment_visit_count");
-          if (!error) {
-            setVisitCount(data);
+          try {
+            // First get current count
+            const { data: currentData, error: currentError } = await supabase
+              .from("visit_counter")
+              .select("count")
+              .eq("id", true)
+              .single();
+            
+            if (!currentError && currentData) {
+              setVisitCount(currentData.count);
+            }
+            
+            // Then increment
+            const { data: incrementedData, error: incrementError } = await supabase.rpc("increment_visit_count");
+            if (!incrementError && incrementedData !== null) {
+              setVisitCount(incrementedData);
+            } else if (incrementError) {
+              console.error("Error incrementing visit count:", incrementError);
+              // If increment fails, at least show the current count
+              if (currentData) {
+                setVisitCount(currentData.count);
+              }
+            }
+          } catch (error) {
+            console.error("Error with visit counter:", error);
+            // Try to get count directly as fallback
+            const { data: fallbackData } = await supabase
+              .from("visit_counter")
+              .select("count")
+              .eq("id", true)
+              .single();
+            if (fallbackData) {
+              setVisitCount(fallbackData.count);
+            }
           }
         }
       } catch (error) {
@@ -191,6 +245,11 @@ const DashboardHome = () => {
       let pendingPosts = 0;
       let totalUsers = 0;
       let totalVets = 0;
+      let adoptedPets = 0;
+      let rejectedPets = 0;
+      let approvedPets = 0;
+      let pendingPets = 0;
+      let availablePets = 0;
 
       if (role === "admin") {
         const [
@@ -198,6 +257,11 @@ const DashboardHome = () => {
           { count: pendingCount },
           { count: usersCount },
           { count: vetsCount },
+          { count: adoptedCount },
+          { count: rejectedCount },
+          { count: approvedCount },
+          { count: pendingStatusCount },
+          { count: availableCount },
         ] = await Promise.all([
           supabase.from("posts").select("*", { count: "exact", head: true }),
           supabase
@@ -212,12 +276,37 @@ const DashboardHome = () => {
             .from("users")
             .select("*", { count: "exact", head: true })
             .eq("role", "vet"),
+          supabase
+            .from("posts")
+            .select("*", { count: "exact", head: true })
+            .in("status", ["adopted", "Adopted"]),
+          supabase
+            .from("posts")
+            .select("*", { count: "exact", head: true })
+            .in("status", ["rejected", "Rejected"]),
+          supabase
+            .from("posts")
+            .select("*", { count: "exact", head: true })
+            .in("status", ["approved", "Approved"]),
+          supabase
+            .from("posts")
+            .select("*", { count: "exact", head: true })
+            .in("status", ["pending", "Pending"]),
+          supabase
+            .from("posts")
+            .select("*", { count: "exact", head: true })
+            .in("status", ["available", "Available"]),
         ]);
 
         totalPosts = postsCount || 0;
         pendingPosts = pendingCount || 0;
         totalUsers = usersCount || 0;
         totalVets = vetsCount || 0;
+        adoptedPets = adoptedCount || 0;
+        rejectedPets = rejectedCount || 0;
+        approvedPets = approvedCount || 0;
+        pendingPets = pendingStatusCount || 0;
+        availablePets = availableCount || 0;
       } else if (role === "vet") {
         const { count } = await supabase
           .from("posts")
@@ -266,6 +355,11 @@ const DashboardHome = () => {
         pendingPosts,
         totalUsers,
         totalVets,
+        adoptedPets,
+        rejectedPets,
+        approvedPets,
+        pendingPets,
+        availablePets,
         recentActivity,
       });
     } catch (error) {
@@ -288,67 +382,142 @@ const DashboardHome = () => {
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-6">Dashboard Overview</h1>
       {userRole === "admin" && (
-        <div className="mb-6 bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded">
-          <span className="font-semibold">Website Visits:</span>{" "}
-          <span className="text-xl font-mono text-yellow-700">{visitCount !== null ? visitCount : "..."}</span>
+        <div className="mb-6 relative overflow-hidden bg-gradient-to-br from-violet-500 via-purple-500 to-indigo-600 rounded-xl shadow-lg">
+          <div className="absolute inset-0 bg-black/10"></div>
+          <div className="relative p-6 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
+                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-white/90 text-sm font-medium mb-1">Total Website Visits</h3>
+                <p className="text-4xl font-bold text-white">
+                  {visitCount !== null ? visitCount.toLocaleString() : (
+                    <span className="inline-block animate-pulse">...</span>
+                  )}
+                </p>
+                <p className="text-white/70 text-xs mt-1">Updated in real-time</p>
+              </div>
+            </div>
+            <div className="hidden md:flex items-center gap-2 text-white/80">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              </svg>
+              <span className="text-sm font-medium">Live</span>
+            </div>
+          </div>
         </div>
       )}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {userRole === "admin" && (
-          <>
-            <div className="bg-white p-6 rounded-lg shadow-md">
-              <h3 className="text-lg font-semibold text-gray-700">
-                Total Posts
-              </h3>
-              <p className="text-3xl font-bold text-violet-600">
-                {stats.totalPosts}
-              </p>
+      {userRole === "admin" && (
+        <>
+          {/* Charts Section */}
+          <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Bar Chart */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h3 className="text-lg font-semibold mb-4 text-gray-700">Pet Status Distribution (Bar Chart)</h3>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart
+                    data={[
+                      { name: "Adopted", value: stats.adoptedPets },
+                      { name: "Approved", value: stats.approvedPets },
+                      { name: "Pending", value: stats.pendingPets },
+                      { name: "Rejected", value: stats.rejectedPets },
+                      { name: "Available", value: stats.availablePets },
+                    ]}
+                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="value" fill="#8B5CF6" name="Number of Pets" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Pie Chart */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h3 className="text-lg font-semibold mb-4 text-gray-700">Pet Status Distribution (Pie Chart)</h3>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={[
+                        { name: "Adopted", value: stats.adoptedPets, color: "#10B981" },
+                        { name: "Approved", value: stats.approvedPets, color: "#3B82F6" },
+                        { name: "Pending", value: stats.pendingPets, color: "#F59E0B" },
+                        { name: "Rejected", value: stats.rejectedPets, color: "#EF4444" },
+                        { name: "Available", value: stats.availablePets, color: "#8B5CF6" },
+                      ]}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={true}
+                      label={({ percent }) => {
+                        if (percent && percent > 0.05) {
+                          return `${(percent * 100).toFixed(0)}%`;
+                        }
+                        return "";
+                      }}
+                      outerRadius={100}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {[
+                        { name: "Adopted", value: stats.adoptedPets, color: "#10B981" },
+                        { name: "Approved", value: stats.approvedPets, color: "#3B82F6" },
+                        { name: "Pending", value: stats.pendingPets, color: "#F59E0B" },
+                        { name: "Rejected", value: stats.rejectedPets, color: "#EF4444" },
+                        { name: "Available", value: stats.availablePets, color: "#8B5CF6" },
+                      ].map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      formatter={(value: any, _name: string) => {
+                        const total = stats.adoptedPets + stats.approvedPets + stats.pendingPets + stats.rejectedPets + stats.availablePets;
+                        const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                        return `${value} (${percentage}%)`;
+                      }}
+                      contentStyle={{ padding: '8px', borderRadius: '8px' }}
+                    />
+                    <Legend 
+                      verticalAlign="bottom" 
+                      height={36}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
             </div>
-            <div className="bg-white p-6 rounded-lg shadow-md">
-              <h3 className="text-lg font-semibold text-gray-700">
-                Pending Reviews
-              </h3>
-              <p className="text-3xl font-bold text-violet-600">
-                {stats.pendingPosts}
-              </p>
+
+            {/* Overall Statistics Chart */}
+            <div className="mt-6 bg-gray-50 rounded-lg p-4">
+              <h3 className="text-lg font-semibold mb-4 text-gray-700">Overall Dashboard Statistics</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart
+                  data={[
+                    { name: "Total Posts", value: stats.totalPosts },
+                    { name: "Total Users", value: stats.totalUsers },
+                    { name: "Total Vets", value: stats.totalVets },
+                    { name: "Pending Reviews", value: stats.pendingPosts },
+                  ]}
+                  margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="value" fill="#8B5CF6" name="Count" />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
-            <div className="bg-white p-6 rounded-lg shadow-md">
-              <h3 className="text-lg font-semibold text-gray-700">
-                Total Users
-              </h3>
-              <p className="text-3xl font-bold text-violet-600">
-                {stats.totalUsers}
-              </p>
-            </div>
-            <div className="bg-white p-6 rounded-lg shadow-md">
-              <h3 className="text-lg font-semibold text-gray-700">
-                Total Vets
-              </h3>
-              <p className="text-3xl font-bold text-violet-600">
-                {stats.totalVets}
-              </p>
-            </div>
-          </>
-        )}
-        {userRole === "vet" && (
-          <div className="bg-white p-6 rounded-lg shadow-md">
-            <h3 className="text-lg font-semibold text-gray-700">
-              Pending Reviews
-            </h3>
-            <p className="text-3xl font-bold text-violet-600">
-              {stats.pendingPosts}
-            </p>
           </div>
-        )}
-        {userRole === "user" && (
-          <div className="bg-white p-6 rounded-lg shadow-md">
-            <h3 className="text-lg font-semibold text-gray-700">My Posts</h3>
-            <p className="text-3xl font-bold text-violet-600">
-              {stats.totalPosts}
-            </p>
-          </div>
-        )}
-      </div>
+        </>
+      )}
 
       <div className="bg-white rounded-lg shadow-md p-6">
         <h2 className="text-xl font-bold mb-4">Recent Activity</h2>
@@ -385,8 +554,6 @@ const UserManagement = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
-  const [expandedUser, setExpandedUser] = useState<string | null>(null);
-  const [viewedAssessments, setViewedAssessments] = useState<Record<string, boolean>>({});
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -394,10 +561,14 @@ const UserManagement = () => {
       console.log("Fetching users...");
 
       // First get users from the users table with a more permissive query
+      // Filter out declined users - admins should not see declined users
       const { data: usersData, error: usersError } = await supabase
         .from("users")
         .select("*") // Select all columns
         .order("created_at", { ascending: false });
+      
+      // Filter out declined users on the client side
+      const nonDeclinedUsers = (usersData || []).filter((user: any) => !user.declined || user.declined === false);
 
       console.log("Raw users data:", usersData);
       console.log("Users error:", usersError);
@@ -407,7 +578,7 @@ const UserManagement = () => {
         throw usersError;
       }
 
-      if (!usersData || usersData.length === 0) {
+      if (!nonDeclinedUsers || nonDeclinedUsers.length === 0) {
         console.log("No users found in the users table");
         setUsers([]);
         setLoading(false);
@@ -415,7 +586,7 @@ const UserManagement = () => {
       }
 
       // Get user profiles for additional information (optional - profiles might not exist)
-      const userIds = usersData.map((user) => user.user_id);
+      const userIds = nonDeclinedUsers.map((user: any) => user.user_id);
       console.log("User IDs to fetch profiles for:", userIds);
 
       const { data: profilesData, error: profilesError } = await supabase
@@ -440,7 +611,7 @@ const UserManagement = () => {
 
       // Combine user data with profile data
       // adoption_validation comes from users table, not profiles
-      const combinedUsers = usersData.map((user) => {
+      const combinedUsers = nonDeclinedUsers.map((user: any) => {
         const profile = profileMap.get(user.user_id);
         console.log(`Processing user ${user.user_id}:`, {
           userData: user,
@@ -493,43 +664,6 @@ const UserManagement = () => {
     }
   };
 
-  const handleAssessmentToggle = (user: User) => {
-    if (!user.adoption_validation) return;
-    setExpandedUser((prev) => (prev === user.user_id ? null : user.user_id));
-    setViewedAssessments((prev) =>
-      prev[user.user_id] ? prev : { ...prev, [user.user_id]: true }
-    );
-  };
-
-  const handleVerificationToggle = async (targetUser: User) => {
-    if (!targetUser.verified) {
-      if (!targetUser.adoption_validation) {
-        toast.error("This user has not completed the adoption assessment yet.");
-        return;
-      }
-      if (!viewedAssessments[targetUser.user_id]) {
-        toast.error("Please review the user's assessment answers before verifying.");
-        return;
-      }
-    }
-
-    try {
-      const { error } = await supabase
-        .from("users")
-        .update({ verified: !targetUser.verified })
-        .eq("user_id", targetUser.user_id);
-
-      if (error) throw error;
-
-      toast.success(
-        `User ${!targetUser.verified ? "verified" : "unverified"} successfully`
-      );
-      fetchUsers();
-    } catch (error) {
-      console.error("Error toggling verification:", error);
-      toast.error("Failed to update verification status");
-    }
-  };
 
   if (loading) {
     return (
@@ -603,12 +737,7 @@ const UserManagement = () => {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Joined
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Assessment
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Actions
-              </th>
+              {/* Assessment and Actions columns removed for admin */}
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -654,75 +783,8 @@ const UserManagement = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {new Date(user.created_at).toLocaleDateString()}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    {user.adoption_validation ? (
-                      <button
-                        onClick={() => handleAssessmentToggle(user)}
-                        className="text-blue-600 hover:text-blue-900 underline"
-                      >
-                        {expandedUser === user.user_id ? "Hide" : "View"} Assessment
-                      </button>
-                    ) : (
-                      <span className="text-gray-400 text-xs">N/A</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <button
-                      disabled={
-                        !user.verified &&
-                        (!user.adoption_validation || !viewedAssessments[user.user_id])
-                      }
-                      onClick={() => handleVerificationToggle(user)}
-                      className={`text-${
-                        user.verified ? "yellow" : "green"
-                      }-600 ${
-                        !user.verified &&
-                        (!user.adoption_validation || !viewedAssessments[user.user_id])
-                          ? "opacity-50 cursor-not-allowed"
-                          : `hover:text-${user.verified ? "yellow" : "green"}-900`
-                      }`}
-                    >
-                      {user.verified ? "Unverify" : "Verify"}
-                    </button>
-                    {!user.verified &&
-                      user.adoption_validation &&
-                      !viewedAssessments[user.user_id] && (
-                        <div className="text-xs text-yellow-600 mt-1">
-                          Review assessment to enable verification
-                        </div>
-                      )}
-                  </td>
+                  {/* Assessment and Action columns removed for admin */}
                 </tr>
-                {expandedUser === user.user_id && user.adoption_validation && (
-                  <tr>
-                    <td colSpan={6} className="bg-gray-50 px-6 py-4">
-                      <h4 className="font-semibold mb-2">Assessment Answers</h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {(() => {
-                          try {
-                            // Handle both object and string JSONB
-                            const validation = typeof user.adoption_validation === 'string' 
-                              ? JSON.parse(user.adoption_validation) 
-                              : user.adoption_validation;
-                            
-                            if (!validation || typeof validation !== 'object') {
-                              return <div className="text-gray-500">No assessment data available</div>;
-                            }
-                            
-                            return Object.entries(validation).map(([question, answer]) => (
-                              <div key={question} className="py-1">
-                                <span className="font-medium text-gray-700">{question.replace(/([A-Z])/g, ' $1').replace(/^./, str=>str.toUpperCase())}:</span> {String(answer)}
-                              </div>
-                            ));
-                          } catch (error) {
-                            console.error("Error parsing assessment data:", error);
-                            return <div className="text-red-500">Error displaying assessment data</div>;
-                          }
-                        })()}
-                      </div>
-                    </td>
-                  </tr>
-                )}
               </React.Fragment>
             ))}
           </tbody>

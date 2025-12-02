@@ -231,9 +231,7 @@ export const PostList: React.FC<PostListProps> = ({ posts: initialPosts }) => {
           </Link>
         </div>
       ) : (
-        posts
-          .filter(post => !post.status || post.status.toLowerCase() !== "adopted")
-          .map((post, index) => (
+        posts.map((post, index) => (
             <div
               key={post.id}
               className="group rounded-2xl overflow-hidden bg-white shadow-lg hover:shadow-xl transition-all duration-300 ease-in-out hover:-translate-y-1"

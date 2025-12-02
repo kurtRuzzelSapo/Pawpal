@@ -77,144 +77,65 @@ const ChatPage: React.FC = () => {
 
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const updateDocumentTitle = useCallback((petName: string | undefined) => {
-    if (petName) {
-      document.title = `Chat with ${petName}`;
+  const updateDocumentTitle = useCallback((userName: string | undefined) => {
+    if (userName) {
+      document.title = `Chat with ${userName}`;
     } else {
       document.title = "Pawpal Chat";
     }
   }, []);
 
-  // Function to get user information with pet name focus
+  // Function to get user information - prioritize user name over pet name
   const getUserInfo = useCallback(
     async (userId: string) => {
       if (!userId) return { name: "Unknown", email: "", avatar: null };
 
       try {
-        console.log(`Getting pet info for user ID: ${userId}`);
+        console.log(`Getting user info for user ID: ${userId}`);
 
-        // First try to check if this is an adoption conversation
-        // Check if the current user has any approved adoption requests with this user
-        if (user) {
-          // Check for approved adoption requests where current user is requester and other user is owner
-          const { data: adoptionData, error: adoptionError } = await supabase
-            .from("adoption_requests")
-            .select("pet_name, post_id")
-            .eq("requester_id", user.id)
-            .eq("owner_id", userId)
-            .eq("status", "approved")
-            .order("updated_at", { ascending: false })
-            .limit(1);
+        // First, try to get user's actual name from profiles table
+        const { data: profileData, error: profileError } = await supabase
+          .from("profiles")
+          .select("full_name, email, avatar_url")
+          .eq("id", userId)
+          .single();
 
-          if (
-            !adoptionError &&
-            adoptionData &&
-            adoptionData.length > 0 &&
-            adoptionData[0].pet_name
-          ) {
-            console.log(`Found adopted pet name: ${adoptionData[0].pet_name}`);
+        if (!profileError && profileData && profileData.full_name) {
+          console.log(`Found user name from profiles: ${profileData.full_name}`);
             return {
-              name: adoptionData[0].pet_name,
-              email: "",
-              avatar: null,
-            };
-          }
-
-          // Or check if other user is requester and current user is owner
-          const { data: adoptionData2, error: adoptionError2 } = await supabase
-            .from("adoption_requests")
-            .select("pet_name, post_id")
-            .eq("owner_id", user.id)
-            .eq("requester_id", userId)
-            .eq("status", "approved")
-            .order("updated_at", { ascending: false })
-            .limit(1);
-
-          if (
-            !adoptionError2 &&
-            adoptionData2 &&
-            adoptionData2.length > 0 &&
-            adoptionData2[0].pet_name
-          ) {
-            console.log(`Found adopted pet name: ${adoptionData2[0].pet_name}`);
-            return {
-              name: adoptionData2[0].pet_name,
-              email: "",
-              avatar: null,
-            };
-          }
-
-          // If no approved adoption requests found, check for pending ones as well
-          const { data: pendingData, error: pendingError } = await supabase
-            .from("adoption_requests")
-            .select("pet_name, post_id")
-            .or(`requester_id.eq.${user.id},owner_id.eq.${user.id}`)
-            .or(`requester_id.eq.${userId},owner_id.eq.${userId}`)
-            .order("updated_at", { ascending: false })
-            .limit(1);
-
-          if (
-            !pendingError &&
-            pendingData &&
-            pendingData.length > 0 &&
-            pendingData[0].pet_name
-          ) {
-            console.log(
-              `Found pending pet adoption name: ${pendingData[0].pet_name}`
-            );
-            return {
-              name: pendingData[0].pet_name,
-              email: "",
-              avatar: null,
-            };
-          }
+            name: profileData.full_name,
+            email: profileData.email || "",
+            avatar: profileData.avatar_url || null,
+          };
         }
 
-        // First try to get pet name directly from posts table
-        const { data: petData, error: petError } = await supabase
-          .from("post")
-          .select("name")
+        // Try users table as fallback
+        const { data: userData, error: userError } = await supabase
+          .from("users")
+          .select("full_name, email")
           .eq("user_id", userId)
-          .order("created_at", { ascending: false })
-          .limit(1);
+          .single();
 
-        if (!petError && petData && petData.length > 0 && petData[0].name) {
-          console.log(`Found pet name from post table: ${petData[0].name}`);
+        if (!userError && userData && userData.full_name) {
+          console.log(`Found user name from users table: ${userData.full_name}`);
           return {
-            name: petData[0].name,
-            email: "",
+            name: userData.full_name,
+            email: userData.email || "",
             avatar: null,
           };
         }
 
-        // If no pet found with user_id, try with auth_users_id field
-        const { data: petData2, error: petError2 } = await supabase
-          .from("post")
-          .select("name")
-          .eq("auth_users_id", userId)
-          .order("created_at", { ascending: false })
-          .limit(1);
-
-        if (!petError2 && petData2 && petData2.length > 0 && petData2[0].name) {
-          console.log(
-            `Found pet name using auth_users_id: ${petData2[0].name}`
-          );
-          return {
-            name: petData2[0].name,
-            email: "",
-            avatar: null,
-          };
-        }
-
-        // Fallback to email via the original function
+        // Fallback to email via RPC function
         const { data: emailData, error: emailError } = await supabase.rpc(
           "get_user_email",
           { user_id: userId }
         );
 
         if (!emailError && emailData && emailData[0]?.email) {
+          // Extract name from email if no full name available
+          const emailName = emailData[0].email.split("@")[0];
           return {
-            name: emailData[0].email,
+            name: emailName,
             email: emailData[0].email,
             avatar: null,
           };
@@ -444,17 +365,8 @@ const ChatPage: React.FC = () => {
                   }
                 }
 
-                // If we already have a pet name in the conversation record, use it
-                if (convo.pet_name) {
-                  otherUserInfo = {
-                    name: convo.pet_name,
-                    email: "",
-                    avatar: null,
-                  };
-                  console.log(
-                    `Using pet name from conversation: ${convo.pet_name}`
-                  );
-                } else if (members && members.length > 0) {
+                // Get user info first - prioritize user name over pet name
+                if (members && members.length > 0) {
                   otherUserId = members[0].user_id;
                   console.log(
                     `Other user ID for conversation ${convo.id}:`,
@@ -462,7 +374,11 @@ const ChatPage: React.FC = () => {
                   );
 
                   try {
-                    // First check for adoption requests between these users
+                    // Always get user info first - prioritize user name
+                    otherUserInfo = await getUserInfo(otherUserId);
+                    
+                    // Optionally store pet name for reference, but don't use it for display
+                    // Check for adoption requests to get pet name for metadata only
                     const { data: adoptionData, error: adoptionError } =
                       await supabase
                         .from("adoption_requests")
@@ -480,55 +396,39 @@ const ChatPage: React.FC = () => {
                       adoptionData.length > 0 &&
                       adoptionData[0].pet_name
                     ) {
-                      // Found an adoption request with pet name
-                      otherUserInfo = {
-                        name: adoptionData[0].pet_name,
-                        email: "",
-                        avatar: null,
-                      };
-                      console.log(
-                        `Found adopted pet name for ${otherUserId}:`,
-                        adoptionData[0].pet_name
-                      );
-
-                      // Update the conversation record for future use
+                      // Store pet name for metadata, but keep user name for display
                       await supabase
                         .from("conversations")
                         .update({
                           pet_name: adoptionData[0].pet_name,
-                          title: adoptionData[0].pet_name,
+                          title: otherUserInfo.name, // Use user name for title
                           post_id: adoptionData[0].post_id,
                         })
                         .eq("id", convo.id);
                     } else {
-                      // Get pet info using our new function
+                      // Try to get pet info for metadata only
                       const { data: petInfo, error: petInfoError } =
                         await supabase.rpc("get_user_with_pet", {
                           user_uuid: otherUserId,
                         });
 
                       if (!petInfoError && petInfo && petInfo.pet_name) {
-                        otherUserInfo = {
-                          name: petInfo.pet_name,
-                          email: petInfo.email || "",
-                          avatar: null,
-                        };
-                        console.log(
-                          `Found pet for ${otherUserId}:`,
-                          petInfo.pet_name
-                        );
-
-                        // Update the conversation record for future use
+                        // Store pet name for metadata, but keep user name for display
                         await supabase
                           .from("conversations")
                           .update({
                             pet_name: petInfo.pet_name,
-                            title: petInfo.pet_name,
+                            title: otherUserInfo.name, // Use user name for title
                           })
                           .eq("id", convo.id);
                       } else {
-                        // Fallback to regular user info
-                        otherUserInfo = await getUserInfo(otherUserId);
+                        // Update title with user name
+                        await supabase
+                          .from("conversations")
+                          .update({
+                            title: otherUserInfo.name,
+                          })
+                          .eq("id", convo.id);
                       }
                     }
                     console.log(
@@ -618,11 +518,8 @@ const ChatPage: React.FC = () => {
                   }
                 }
 
-                // Compose final display name as \"Other Person · Pet\" when we have a pet name
-                const petNameForDisplay = convo.pet_name || otherUserInfo.name;
-                const combinedDisplayName = petNameForDisplay
-                  ? `${baseDisplayName} · ${petNameForDisplay}`
-                  : baseDisplayName;
+                // Use user name for display - don't combine with pet name
+                const combinedDisplayName = baseDisplayName;
 
                 const processedConvo = {
                   conversation_id: convo.id,
@@ -645,7 +542,7 @@ const ChatPage: React.FC = () => {
                   other_user_id: otherUserId,
                   other_user_name: combinedDisplayName,
                   other_user_avatar: otherUserInfo.avatar,
-                  pet_name: petNameForDisplay,
+                  pet_name: convo.pet_name, // Store for metadata, but not used for display
                   post_id: convo.post_id,
                   adopter_name: convo.adopter_name,
                   owner_name: convo.owner_name,
@@ -833,16 +730,20 @@ const ChatPage: React.FC = () => {
             adoptionData.length > 0 &&
             adoptionData[0].pet_name
           ) {
-            // Found an adoption request with pet name
+            // Found an adoption request with pet name - store for metadata
             adoptedPetName = adoptionData[0].pet_name;
             petName = adoptedPetName;
 
-            // Update the conversation for future use
+            // Get user name for the title instead of pet name
+            const otherUserInfo = await getUserInfo(otherUserId);
+            const userDisplayName = otherUserInfo.name || "User";
+
+            // Update the conversation - use user name for title
             await supabase
               .from("conversations")
               .update({
-                pet_name: adoptedPetName,
-                title: adoptedPetName,
+                pet_name: adoptedPetName, // Store pet name for metadata
+                title: userDisplayName, // Use user name for title
               })
               .eq("id", conversationId);
           }
@@ -1044,8 +945,9 @@ const ChatPage: React.FC = () => {
         //   avatar: null,
         // });
 
-        // Update chat title in the document
-        document.title = `Chat with ${conversationData.pet_name}`;
+        // Update chat title in the document - use user name instead of pet name
+        const otherUserInfo = await getUserInfo(conversationData.other_user_id || "");
+        document.title = `Chat with ${otherUserInfo.name}`;
         return;
       }
 
@@ -1121,8 +1023,11 @@ const ChatPage: React.FC = () => {
             ownerName = currentUserEmail;
           }
 
-          // Update chat title in the document - show the other person's name
-          document.title = `Chat with ${otherUserEmail}`;
+          // This is handled in the update above
+
+          // Get user names for the title
+          const otherUserInfo = await getUserInfo(otherUserId);
+          const userDisplayName = otherUserInfo.name || otherUserEmail;
 
           // Store this info in the conversation for future use
           await supabase
@@ -1132,9 +1037,12 @@ const ChatPage: React.FC = () => {
               post_id: adoption.post_id,
               adopter_name: adopterName,
               owner_name: ownerName,
-              title: adoption.pet_name,
+              title: userDisplayName, // Use user name instead of pet name
             })
             .eq("id", conversationId);
+
+          // Update chat title in the document - show the other person's name
+          document.title = `Chat with ${userDisplayName}`;
 
           return;
         }
@@ -1158,18 +1066,22 @@ const ChatPage: React.FC = () => {
             avatar: null,
           };
 
-          // Update the conversation with the pet info
+            // Get user name for the title
+            const userInfoForTitle = await getUserInfo(otherUserId);
+            const displayName = userInfoForTitle.name || "User";
+
+            // Update the conversation with the pet info but use user name for title
           await supabase
             .from("conversations")
             .update({
               pet_name: petData[0].name,
               post_id: petData[0].id,
-              title: petData[0].name,
+                title: displayName, // Use user name instead of pet name
             })
             .eq("id", conversationId);
 
-          // Update the chat title in the document
-          document.title = `Chat with ${petData[0].name}`;
+          // Update the chat title in the document - use user name
+          document.title = `Chat with ${displayName}`;
         } else {
           // Try with auth_users_id
           const { data: petData2, error: petError2 } = await supabase
@@ -1191,18 +1103,22 @@ const ChatPage: React.FC = () => {
               avatar: null,
             };
 
-            // Update the conversation with the pet info
+            // Get user name for the title
+            const userInfoForTitle2 = await getUserInfo(otherUserId);
+            const displayName2 = userInfoForTitle2.name || "User";
+
+            // Update the conversation with the pet info but use user name for title
             await supabase
               .from("conversations")
               .update({
                 pet_name: petData2[0].name,
                 post_id: petData2[0].id,
-                title: petData2[0].name,
+                title: displayName2, // Use user name instead of pet name
               })
               .eq("id", conversationId);
 
-            // Update the chat title in the document
-            document.title = `Chat with ${petData2[0].name}`;
+            // Update the chat title in the document - use user name
+            document.title = `Chat with ${displayName2}`;
           } else {
             // Fallback to user info
             userInfo = await getUserInfo(otherUserId);
@@ -1258,11 +1174,15 @@ const ChatPage: React.FC = () => {
         }
 
         // If no existing conversation, proceed with creation
+        // Get user name for the title
+        const receiverUserInfo = await getUserInfo(otherUserId);
+        const receiverDisplayName = receiverUserInfo.name || "User";
+        
         const { data: newConversation, error: createError } = await supabase
           .from("conversations")
           .insert({
-            title: petName || "New Chat",
-            pet_name: petName,
+            title: receiverDisplayName, // Use user name instead of pet name
+            pet_name: petName, // Store pet name for metadata only
             post_id: postId,
             is_group: false,
             created_at: new Date().toISOString(),
