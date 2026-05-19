@@ -133,7 +133,7 @@ const SignUpPage = () => {
       return false;
     }
     if (!acceptedTerms) {
-      setError("You must accept the Terms of Service to continue");
+      setError("You must agree to the Terms of Service to continue.");
       return false;
     }
     return true;
@@ -175,12 +175,6 @@ const SignUpPage = () => {
       return;
     }
 
-    // Final check: ensure terms are still accepted
-    if (!acceptedTerms) {
-      setError("You must accept the Terms of Service to create an account");
-      return;
-    }
-
     setLoading(true);
     setError("");
 
@@ -211,7 +205,18 @@ const SignUpPage = () => {
           navigate("/login");
         }, 3000);
       } else {
-        setError(error || "Sign up failed. Try again.");
+        // Show the full error message and object for debugging
+        let displayError = "Sign up failed. Try again.";
+        if (error) {
+          if (typeof error === 'string') displayError = error;
+          else if ((error as any)?.message) displayError = (error as any).message;
+          else displayError = JSON.stringify(error);
+        }
+        setError(displayError);
+        if (error) {
+          // Log the full error object for developer visibility
+          console.error("Signup failed with error (full object):", error);
+        }
       }
     } catch (error: unknown) {
       if (error instanceof Error) {
@@ -388,10 +393,9 @@ const SignUpPage = () => {
                      </div>
                    </div>
                  </div>
-
-                 <div className="flex items-start">
-                   <input
-                     type="checkbox"
+                  <div className="flex items-start">
+                    <input
+                      type="checkbox"
                      id="termsCheckbox"
                      checked={acceptedTerms}
                      onChange={(e) => {
@@ -415,13 +419,13 @@ const SignUpPage = () => {
                    </label>
                  </div>
 
-                 {error && (
-                   <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                     {error}
-                   </div>
-                 )}
-              </div>
-            )}
+                  {error && (
+                    <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                      {error}
+                    </div>
+                  )}
+               </div>
+             )}
 
             {[2, 3, 4].includes(step) && (
               <div className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6 space-y-4">
@@ -519,8 +523,6 @@ const SignUpPage = () => {
           </form>
         </div>
       </div>
-
-      {/* Terms of Service Modal */}
       <TermsOfServiceModal
         isOpen={showTermsModal}
         onClose={() => setShowTermsModal(false)}

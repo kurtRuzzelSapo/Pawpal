@@ -13,13 +13,15 @@ import {
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import { AdoptionRequestDetails } from "./AdoptionRequestDetails";
+import { insertNotificationWithFallback } from "../utils/notifications";
 
 interface Notification {
   id: number;
   user_id: string;
   type: string;
   message: string;
-  read: boolean;
+  read?: boolean;
+  is_read?: boolean;
   created_at: string;
   link?: string;
   post_id?: number;
@@ -36,6 +38,29 @@ interface EnhancedNotification extends Notification {
   petAge?: number;
   requesterName?: string;
 }
+
+interface PendingAdoptionRequest {
+  post_id: number;
+  requester_id: string;
+  created_at?: string;
+  pet_name?: string;
+}
+
+const isNotificationRead = (notification: Notification) =>
+  notification.read ?? notification.is_read ?? false;
+
+const isMissingColumnError = (
+  error: { message?: string | null; details?: string | null } | null,
+  column: string
+) => {
+  if (!error) return false;
+  const errorText = `${error.message ?? ""} ${error.details ?? ""}`.toLowerCase();
+  return (
+    errorText.includes(`"${column.toLowerCase()}"`) ||
+    errorText.includes(`'${column.toLowerCase()}'`) ||
+    errorText.includes(` ${column.toLowerCase()} `)
+  );
+};
 
 export const NotificationBadge: React.FC = () => {
   const { user } = useAuth();
@@ -56,9 +81,132 @@ export const NotificationBadge: React.FC = () => {
   const [selectMode, setSelectMode] = useState(false);
   const navigate = useNavigate();
 
+  const fetchPendingAdoptionRequests = async (ownerId: string) => {
+    const withPetName = await supabase
+      .from("adoption_requests")
+      .select("post_id, requester_id, created_at, pet_name")
+      .eq("owner_id", ownerId)
+      .eq("status", "pending");
+
+    if (!isMissingColumnError(withPetName.error, "pet_name")) {
+      if (withPetName.error) {
+        console.error(
+          "Error fetching pending adoption requests for notifications:",
+          withPetName.error
+        );
+        return [];
+      }
+
+      return (withPetName.data || []) as PendingAdoptionRequest[];
+    }
+
+    const withoutPetName = await supabase
+      .from("adoption_requests")
+      .select("post_id, requester_id, created_at")
+      .eq("owner_id", ownerId)
+      .eq("status", "pending");
+
+    if (withoutPetName.error) {
+      console.error(
+        "Error fetching pending adoption requests for notifications:",
+        withoutPetName.error
+      );
+      return [];
+    }
+
+    return (withoutPetName.data || []) as PendingAdoptionRequest[];
+  };
+
+  const ensurePendingRequestNotifications = async (
+    ownerId: string,
+    currentNotifications: Notification[]
+  ) => {
+    const pendingRequests = await fetchPendingAdoptionRequests(ownerId);
+    if (!pendingRequests.length) return false;
+
+    const existingKeys = new Set(
+      currentNotifications
+        .filter((notification) => notification.type === "adoption_request")
+        .map((notification) => `${notification.post_id}:${notification.requester_id}`)
+    );
+
+    let insertedAny = false;
+
+    for (const request of pendingRequests) {
+      const dedupeKey = `${request.post_id}:${request.requester_id}`;
+      if (existingKeys.has(dedupeKey)) continue;
+
+      const notificationError = await insertNotificationWithFallback({
+        user_id: ownerId,
+        type: "adoption_request",
+        message: `New adoption request for ${request.pet_name || "your pet"}`,
+        created_at: request.created_at || new Date().toISOString(),
+        requester_id: request.requester_id,
+        link: `/post/${request.post_id}`,
+        post_id: request.post_id,
+      });
+
+      if (notificationError) {
+        console.error(
+          "Error backfilling pending adoption notification:",
+          notificationError
+        );
+        continue;
+      }
+
+      insertedAny = true;
+      existingKeys.add(dedupeKey);
+    }
+
+    return insertedAny;
+  };
+
+  const markNotificationAsReadInDb = async (notificationId: number) => {
+    const primaryUpdate = await supabase
+      .from("notifications")
+      .update({ read: true })
+      .eq("id", notificationId);
+
+    if (!isMissingColumnError(primaryUpdate.error, "read")) {
+      return primaryUpdate.error;
+    }
+
+    const fallbackUpdate = await supabase
+      .from("notifications")
+      .update({ is_read: true })
+      .eq("id", notificationId);
+
+    return fallbackUpdate.error;
+  };
+
+  const markAllNotificationsAsReadInDb = async (userId: string) => {
+    const primaryUpdate = await supabase
+      .from("notifications")
+      .update({ read: true })
+      .eq("user_id", userId)
+      .eq("read", false);
+
+    if (!isMissingColumnError(primaryUpdate.error, "read")) {
+      return primaryUpdate.error;
+    }
+
+    const fallbackUpdate = await supabase
+      .from("notifications")
+      .update({ is_read: true })
+      .eq("user_id", userId)
+      .eq("is_read", false);
+
+    return fallbackUpdate.error;
+  };
+
   // Fetch unread notifications count
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setUnreadCount(0);
+      setNotifications([]);
+      setEnhancedNotifications([]);
+      return;
+    }
 
     const fetchNotifications = async () => {
       setLoading(true);
@@ -75,14 +223,37 @@ export const NotificationBadge: React.FC = () => {
         }
 
         if (data) {
-          setNotifications(data);
+          let workingNotifications = data;
+          const insertedPendingNotifications = await ensurePendingRequestNotifications(
+            user.id,
+            data
+          );
+
+          if (insertedPendingNotifications) {
+            const { data: refetchedData, error: refetchError } = await supabase
+              .from("notifications")
+              .select("*")
+              .eq("user_id", user.id)
+              .order("created_at", { ascending: false });
+
+            if (!refetchError && refetchedData) {
+              workingNotifications = refetchedData;
+            } else if (refetchError) {
+              console.error(
+                "Error refetching notifications after backfill:",
+                refetchError
+              );
+            }
+          }
+
+          setNotifications(workingNotifications);
           // Count unread ones
-          const unread = data.filter((n) => !n.read).length;
+          const unread = workingNotifications.filter((n) => !isNotificationRead(n)).length;
           setUnreadCount(unread);
 
           // Enhance notifications with additional data
           const enhanced = await Promise.all(
-            data.map(async (notification) => {
+            workingNotifications.map(async (notification) => {
               const enhancedNotification: EnhancedNotification = {
                 ...notification,
               };
@@ -155,13 +326,22 @@ export const NotificationBadge: React.FC = () => {
 
     fetchNotifications();
 
+    // Fallback polling so notifications still update when realtime isn't available.
+    const pollingId = window.setInterval(() => {
+      fetchNotifications();
+    }, 15000);
+
     // Set up real-time subscription for new notifications
     const subscription = supabase
-      .channel("notifications_changes")
+      .channel(
+        `notifications_changes_${user.id}_${Math.random()
+          .toString(36)
+          .slice(2)}`
+      )
       .on(
         "postgres_changes",
         {
-          event: "INSERT",
+          event: "*",
           schema: "public",
           table: "notifications",
           filter: `user_id=eq.${user.id}`,
@@ -173,7 +353,8 @@ export const NotificationBadge: React.FC = () => {
       .subscribe();
 
     return () => {
-      subscription.unsubscribe();
+      window.clearInterval(pollingId);
+      supabase.removeChannel(subscription);
     };
   }, [user]);
 
@@ -194,10 +375,94 @@ export const NotificationBadge: React.FC = () => {
       }
 
       if (data) {
-        setNotifications(data);
+        let workingNotifications = data;
+        const insertedPendingNotifications = await ensurePendingRequestNotifications(
+          user.id,
+          data
+        );
+
+        if (insertedPendingNotifications) {
+          const { data: refetchedData, error: refetchError } = await supabase
+            .from("notifications")
+            .select("*")
+            .eq("user_id", user.id)
+            .order("created_at", { ascending: false });
+
+          if (!refetchError && refetchedData) {
+            workingNotifications = refetchedData;
+          } else if (refetchError) {
+            console.error(
+              "Error refetching notifications after backfill:",
+              refetchError
+            );
+          }
+        }
+
+        setNotifications(workingNotifications);
         // Count unread ones
-        const unread = data.filter((n) => !n.read).length;
+        const unread = workingNotifications.filter((n) => !isNotificationRead(n)).length;
         setUnreadCount(unread);
+
+        const enhanced = await Promise.all(
+          workingNotifications.map(async (notification) => {
+            const enhancedNotification: EnhancedNotification = {
+              ...notification,
+            };
+
+            if (
+              notification.type === "adoption_request" &&
+              notification.requester_id
+            ) {
+              try {
+                if (notification.post_id) {
+                  const { data: requestData } = await supabase
+                    .from("adoption_requests")
+                    .select("id, status, created_at")
+                    .eq("post_id", notification.post_id)
+                    .eq("requester_id", notification.requester_id)
+                    .order("created_at", { ascending: false })
+                    .maybeSingle();
+
+                  if (requestData) {
+                    enhancedNotification.requestId = requestData.id;
+                    enhancedNotification.requestStatus = requestData.status;
+                    enhancedNotification.requestDate = requestData.created_at;
+                  }
+                }
+
+                if (notification.post_id) {
+                  const { data: postData } = await supabase
+                    .from("posts")
+                    .select("name, image_url, breed, age")
+                    .eq("id", notification.post_id)
+                    .maybeSingle();
+
+                  if (postData) {
+                    enhancedNotification.petName = postData.name || "a pet";
+                    enhancedNotification.petImage = postData.image_url;
+                    enhancedNotification.petBreed = postData.breed;
+                    enhancedNotification.petAge = postData.age;
+                  }
+                }
+
+                if (notification.requester_id) {
+                  const requesterName = await getRequesterNameForNotification(
+                    notification.requester_id
+                  );
+                  if (requesterName) {
+                    enhancedNotification.requesterName = requesterName;
+                  }
+                }
+              } catch (err) {
+                console.error("Error enhancing notification:", err);
+              }
+            }
+
+            return enhancedNotification;
+          })
+        );
+
+        setEnhancedNotifications(enhanced);
 
         // Reset selection when refreshing
         setSelectedNotifications([]);
@@ -253,10 +518,7 @@ export const NotificationBadge: React.FC = () => {
   };
 
   const markAsRead = async (notificationId: number) => {
-    const { error } = await supabase
-      .from("notifications")
-      .update({ read: true })
-      .eq("id", notificationId);
+    const error = await markNotificationAsReadInDb(notificationId);
 
     if (error) {
       console.error("Error marking notification as read:", error);
@@ -267,7 +529,7 @@ export const NotificationBadge: React.FC = () => {
     setNotifications((prevNotifications) =>
       prevNotifications.map((notification) =>
         notification.id === notificationId
-          ? { ...notification, read: true }
+          ? { ...notification, read: true, is_read: true }
           : notification
       )
     );
@@ -275,7 +537,7 @@ export const NotificationBadge: React.FC = () => {
     setEnhancedNotifications((prevNotifications) =>
       prevNotifications.map((notification) =>
         notification.id === notificationId
-          ? { ...notification, read: true }
+          ? { ...notification, read: true, is_read: true }
           : notification
       )
     );
@@ -293,7 +555,7 @@ export const NotificationBadge: React.FC = () => {
     }
 
     // Mark as read
-    if (!notification.read) {
+    if (!isNotificationRead(notification)) {
       markAsRead(notification.id);
     }
 
@@ -368,13 +630,9 @@ export const NotificationBadge: React.FC = () => {
   };
 
   const markAllAsRead = async () => {
-    if (notifications.length === 0) return;
+    if (notifications.length === 0 || !user) return;
 
-    const { error } = await supabase
-      .from("notifications")
-      .update({ read: true })
-      .eq("user_id", user?.id)
-      .eq("read", false);
+    const error = await markAllNotificationsAsReadInDb(user.id);
 
     if (error) {
       console.error("Error marking all notifications as read:", error);
@@ -382,11 +640,19 @@ export const NotificationBadge: React.FC = () => {
     }
 
     setNotifications((prevNotifications) =>
-      prevNotifications.map((notification) => ({ ...notification, read: true }))
+      prevNotifications.map((notification) => ({
+        ...notification,
+        read: true,
+        is_read: true,
+      }))
     );
 
     setEnhancedNotifications((prevNotifications) =>
-      prevNotifications.map((notification) => ({ ...notification, read: true }))
+      prevNotifications.map((notification) => ({
+        ...notification,
+        read: true,
+        is_read: true,
+      }))
     );
 
     setUnreadCount(0);
@@ -500,7 +766,13 @@ export const NotificationBadge: React.FC = () => {
     <div className="relative">
       <button
         className="relative p-2 rounded-full hover:bg-violet-100 transition-colors"
-        onClick={() => setShowDropdown(!showDropdown)}
+        onClick={() => {
+          const willOpen = !showDropdown;
+          setShowDropdown(willOpen);
+          if (willOpen) {
+            refreshNotifications();
+          }
+        }}
       >
         <FaBell className="text-violet-800 text-xl" />
         {unreadCount > 0 && (
@@ -586,8 +858,8 @@ export const NotificationBadge: React.FC = () => {
                   key={notification.id}
                   className={`p-3 border-b border-gray-100 ${
                     selectMode ? "cursor-pointer" : ""
-                  } hover:bg-violet-50 transition-colors ${
-                    !notification.read ? "bg-violet-50" : ""
+                   } hover:bg-violet-50 transition-colors ${
+                    !isNotificationRead(notification) ? "bg-violet-50" : ""
                   } ${
                     selectedNotifications.includes(notification.id)
                       ? "bg-violet-100"

@@ -18,6 +18,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { toast } from "react-hot-toast";
 import { AdoptionRequestsList } from "./AdoptionRequestsList";
 import { MessageButton } from "./MessageButton";
+import { resolveUserIdentity } from "../utils/userIdentity";
+import { insertNotificationWithFallback } from "../utils/notifications";
 
 interface ModalProps {
   isOpen: boolean;
@@ -281,6 +283,12 @@ const updatePost = async (postId: number, updates: Partial<Post>) => {
   if (error) throw error;
 };
 
+const isPostIdSchemaError = (error: { code?: string | null; message?: string | null; details?: string | null }) => {
+  if (!error) return false;
+  const text = `${error.message || ""} ${error.details || ""}`.toLowerCase();
+  return error.code === "23503" || (text.includes("post_id") && text.includes("foreign key"));
+};
+
 // Utility function to create adoption chat (shared between PostDetail and AdoptionRequestDetails)
 const createAdoptionChat = async ({
   adopterId,
@@ -305,35 +313,49 @@ const createAdoptionChat = async ({
       specific_post_id: postId,
     });
   if (!existingError && existing && existing.length > 0) return existing[0].conversation_id;
-  
-  // Generate UUID client-side so we don't need SELECT after INSERT
-  // (the SELECT RLS policy on conversations requires the user to be in user_conversations,
-  // but we haven't added them yet — a chicken-and-egg problem)
   const conversationId = crypto.randomUUID();
-  
-  // Create new conversation without .select() to avoid RLS SELECT policy issue
-  const { error } = await supabase
+  const baseConversationPayload = {
+    id: conversationId,
+    title: adopterName || ownerName || "Chat",
+    adopter_name: adopterName,
+    owner_name: ownerName || "",
+    pet_name: petName,
+    is_group: false,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  let createResult = await supabase
     .from("conversations")
-    .insert([
-      {
-        id: conversationId,
-        title: adopterName,
-        post_id: postId,
-        adopter_name: adopterName,
-        owner_name: ownerName || "",
-        pet_name: petName,
-        is_group: false,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-    ]);
-  if (error) throw error;
-  
-  // Add both users to conversation
-  await supabase.from("user_conversations").insert([
-    { user_id: adopterId, conversation_id: conversationId, joined_at: new Date().toISOString() },
-    { user_id: ownerId, conversation_id: conversationId, joined_at: new Date().toISOString() },
-  ]);
+    .insert([{ ...baseConversationPayload, post_id: postId }]);
+
+  if (createResult.error && isPostIdSchemaError(createResult.error)) {
+    createResult = await supabase
+      .from("conversations")
+      .insert([baseConversationPayload]);
+  }
+
+  if (createResult.error) throw createResult.error;
+
+  const { error: membersError } = await supabase
+    .from("user_conversations")
+    .upsert(
+      [
+        {
+          user_id: adopterId,
+          conversation_id: conversationId,
+          joined_at: new Date().toISOString(),
+        },
+        {
+          user_id: ownerId,
+          conversation_id: conversationId,
+          joined_at: new Date().toISOString(),
+        },
+      ],
+      { onConflict: "user_id,conversation_id", ignoreDuplicates: true }
+    );
+
+  if (membersError) throw membersError;
   return conversationId;
 };
 
@@ -359,7 +381,33 @@ const sendAdoptionRequest = async (
     }
 
     if (existingRequests && existingRequests.length > 0) {
-      throw new Error("You already have a pending request for this pet");
+      const pendingRequest = existingRequests.find(
+        (request) => request.status === "pending"
+      );
+      if (pendingRequest) {
+        const existingRequestNotificationError = await insertNotificationWithFallback(
+          {
+            user_id: ownerId,
+            type: "adoption_request",
+            message: `New adoption request for ${petName}${
+              reason ? ` - Reason: ${reason}` : ""
+            }`,
+            created_at: new Date().toISOString(),
+            requester_id: requesterId,
+            link: `/post/${postId}`,
+            post_id: postId,
+          }
+        );
+
+        if (existingRequestNotificationError) {
+          console.error(
+            "Error creating notification for existing pending request:",
+            existingRequestNotificationError
+          );
+        }
+        return { request: pendingRequest };
+      }
+      throw new Error("You already have a request for this pet");
     }
 
     // If no existing request, create a new one (send minimal required fields)
@@ -384,83 +432,47 @@ const sendAdoptionRequest = async (
     }
 
     // Also create a notification for the pet owner
-    try {
-      await supabase
-        .from("notifications")
-        .insert([{
-          user_id: ownerId,
-          type: "adoption_request",
-          message: `New adoption request for ${petName}${reason ? ` - Reason: ${reason}` : ""}`,
-          created_at: new Date().toISOString(),
-          is_read: false,
-          link: `/post/${postId}`,
-          post_id: postId,
-        }]);
-    } catch (notifErr) {
-      console.error("Error creating notification:", notifErr);
+    const { name: requesterName } = await resolveUserIdentity(requesterId).catch(
+      () => ({
+        name: "User",
+        email: "",
+        avatar: null,
+      })
+    );
+    const { name: ownerName } = await resolveUserIdentity(ownerId).catch(() => ({
+      name: "",
+      email: "",
+      avatar: null,
+    }));
+
+    const notificationError = await insertNotificationWithFallback({
+      user_id: ownerId,
+      type: "adoption_request",
+      message: `New adoption request for ${petName}${reason ? ` - Reason: ${reason}` : ""}`,
+      created_at: new Date().toISOString(),
+      requester_id: requesterId,
+      link: `/post/${postId}`,
+      post_id: postId,
+    });
+
+    if (notificationError) {
+      console.error("Error creating notification:", notificationError);
     }
 
     // Create chat immediately after submitting adoption request
     try {
-      // Get adopter name - try profiles, users table, then RPC
-      let requesterName = "User";
-      try {
-        const { data: profile } = await supabase
-          .from("profiles").select("full_name").eq("id", requesterId).maybeSingle();
-        if (profile?.full_name && profile.full_name !== "Unknown") {
-          requesterName = profile.full_name;
-        } else {
-          const { data: userData } = await supabase
-            .from("users").select("full_name").eq("user_id", requesterId).maybeSingle();
-          if (userData?.full_name && userData.full_name !== "Unknown") {
-            requesterName = userData.full_name;
-          } else {
-            try {
-              const { data: nameData } = await supabase.rpc("get_user_display_name", {
-                target_user_id: requesterId,
-              });
-              if (nameData) requesterName = nameData;
-            } catch { /* RPC may not exist */ }
-          }
-        }
-      } catch { /* ignore */ }
-
-      // Get owner name - try profiles, users table, then RPC
-      let ownerDisplayName = "";
-      try {
-        const { data: profile } = await supabase
-          .from("profiles").select("full_name").eq("id", ownerId).maybeSingle();
-        if (profile?.full_name && profile.full_name !== "Unknown") {
-          ownerDisplayName = profile.full_name;
-        } else {
-          const { data: userData } = await supabase
-            .from("users").select("full_name").eq("user_id", ownerId).maybeSingle();
-          if (userData?.full_name && userData.full_name !== "Unknown") {
-            ownerDisplayName = userData.full_name;
-          } else {
-            try {
-              const { data: nameData } = await supabase.rpc("get_user_display_name", {
-                target_user_id: ownerId,
-              });
-              if (nameData) ownerDisplayName = nameData;
-            } catch { /* RPC may not exist */ }
-          }
-        }
-      } catch { /* ignore */ }
-
       const conversationId = await createAdoptionChat({
         adopterId: requesterId,
-        ownerId: ownerId,
-        postId: postId,
+        ownerId,
+        postId,
         adopterName: requesterName,
-        ownerName: ownerDisplayName,
-        petName: petName,
+        ownerName,
+        petName,
       });
-      
-      return { conversationId };
+
+      return { request: data?.[0] ?? null, conversationId };
     } catch (chatError) {
       console.error("Error creating chat:", chatError);
-      // Don't throw - adoption request was successful, chat creation is optional
     }
 
     return data;
@@ -502,19 +514,22 @@ const cancelAdoptionRequest = async (postId: number, requesterId: string) => {
     }
 
     // Create a notification for the owner
-    try {
-      await supabase
-        .from("notifications")
-        .insert([{
-          user_id: existingRequests[0].owner_id,
-          type: "adoption_cancelled",
-          message: `An adoption request for your pet has been cancelled`,
-          created_at: new Date().toISOString(),
-          is_read: false,
-          link: `/post/${postId}`,
-        }]);
-    } catch (notifErr) {
-      console.error("Error creating cancellation notification:", notifErr);
+    const notificationError = await insertNotificationWithFallback({
+      user_id: existingRequests[0].owner_id,
+      type: "adoption_cancelled",
+      message: `An adoption request for your pet has been cancelled`,
+      created_at: new Date().toISOString(),
+      requester_id: requesterId,
+      link: `/post/${postId}`,
+      post_id: postId,
+    });
+
+    if (notificationError) {
+      console.error(
+        "Error creating cancellation notification:",
+        notificationError
+      );
+      // Don't throw here, we still want to consider the cancellation as successful
     }
 
     return true;
@@ -742,6 +757,14 @@ export const PostDetail = ({ postId }: { postId: string }) => {
   }
 
   const isOwner = user && (user.id === post.user_id || user.id === post.auth_users_id);
+  const resolvedOwnerId =
+    [post.auth_users_id, post.user_id].find(
+      (candidate): candidate is string =>
+        typeof candidate === "string" && candidate.length > 0 && candidate !== user?.id
+    ) ??
+    post.auth_users_id ??
+    post.user_id ??
+    null;
 
   const handleDelete = async () => {
     if (!post) return;
@@ -837,7 +860,7 @@ export const PostDetail = ({ postId }: { postId: string }) => {
         onClose={() => setIsAdoptionReasonModalOpen(false)}
         isSubmitting={isRequesting}
         onSubmit={async (reason: string) => {
-          const ownerId = post?.user_id || post?.auth_users_id;
+          const ownerId = resolvedOwnerId;
           if (!user || !ownerId || !post?.name) {
             toast.error(
               "You must be logged in to make an adoption request, or post data is incomplete."
@@ -959,7 +982,7 @@ export const PostDetail = ({ postId }: { postId: string }) => {
                           onClick={() =>
                             navigate("/chat", {
                               state: {
-                                otherUserId: post.user_id,
+                                otherUserId: resolvedOwnerId,
                                 postId: post.id,
                                 petName: post.name,
                               },
@@ -1009,14 +1032,14 @@ export const PostDetail = ({ postId }: { postId: string }) => {
                 )}
 
                 {/* Message Button */}
-                {!isOwner && user && post.user_id && requestStatus === "approved" && (
+                {!isOwner && user && resolvedOwnerId && requestStatus === "approved" && (
                   <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border border-violet-100 p-4 sm:p-6">
                     <div className="text-center">
                       <p className="text-sm text-gray-500 mb-4">
                         Have questions about this pet?
                       </p>
                       <MessageButton
-                        receiverId={post.user_id}
+                        receiverId={resolvedOwnerId}
                         postId={post.id}
                         petName={post.name}
                       />
@@ -1205,10 +1228,10 @@ export const PostDetail = ({ postId }: { postId: string }) => {
                     <h3 className="font-bold text-xl sm:text-2xl text-violet-800 font-['Quicksand'] mb-4 sm:mb-6">
                       Adoption Requests
                     </h3>
-                    {post.user_id && (
+                    {resolvedOwnerId && (
                       <AdoptionRequestsList
                         postId={numericPostId}
-                        ownerId={post.user_id}
+                        ownerId={resolvedOwnerId}
                       />
                     )}
                   </div>
